@@ -53,6 +53,7 @@ struct FrameRequest {
 enum class Quality : char {
 	Default,
 	High,
+	Synchronous
 };
 
 struct ColorReplacements {

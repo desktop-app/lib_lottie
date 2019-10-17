@@ -169,13 +169,17 @@ Animation::Animation(
 	Quality quality,
 	const ColorReplacements *replacements)
 : _player(player) {
-	const auto weak = base::make_weak(this);
-	crl::async([=] {
-		auto result = Init(content, request, quality, replacements);
-		crl::on_main(weak, [=, data = std::move(result)]() mutable {
-			initDone(std::move(data));
+	if (quality == Quality::Synchronous) {
+		initDone(Init(content, request, quality, replacements));
+	} else {
+		const auto weak = base::make_weak(this);
+		crl::async([=] {
+			auto result = Init(content, request, quality, replacements);
+			crl::on_main(weak, [=, data = std::move(result)]() mutable {
+				initDone(std::move(data));
+			});
 		});
-	});
+	}
 }
 
 Animation::Animation(
@@ -262,6 +266,12 @@ auto Animation::frameInfo(const FrameRequest &request) const -> FrameInfo {
 		PrepareFrameByRequest(frame, !changed),
 		frame->index % _state->framesCount()
 	};
+}
+
+Information Animation::information() const {
+	Expects(_state != nullptr);
+
+	return _state->information();
 }
 
 } // namespace Lottie

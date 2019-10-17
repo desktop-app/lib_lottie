@@ -16,9 +16,9 @@ SinglePlayer::SinglePlayer(
 	Quality quality,
 	const ColorReplacements *replacements,
 	std::shared_ptr<FrameRenderer> renderer)
-: _animation(this, content, request, quality, replacements)
-, _timer([=] { checkNextFrameRender(); })
-, _renderer(renderer ? renderer : FrameRenderer::Instance()) {
+: _timer([=] { checkNextFrameRender(); })
+, _renderer(renderer ? renderer : FrameRenderer::Instance())
+, _animation(this, content, request, quality, replacements) {
 }
 
 SinglePlayer::SinglePlayer(
@@ -30,16 +30,16 @@ SinglePlayer::SinglePlayer(
 	const ColorReplacements *replacements,
 	std::shared_ptr<FrameRenderer> renderer)
 #ifdef LOTTIE_USE_CACHE
-: _animation(
+: _timer([=] { checkNextFrameRender(); })
+, _renderer(renderer ? renderer : FrameRenderer::Instance())
+, _animation(
 	this,
 	std::move(get),
 	std::move(put),
 	content,
 	request,
 	quality,
-	replacements)
-, _timer([=] { checkNextFrameRender(); })
-, _renderer(renderer ? renderer : FrameRenderer::Instance()) {
+	replacements) {
 #else // LOTTIE_USE_CACHE
 : SinglePlayer(
 	content,
@@ -99,6 +99,10 @@ QImage SinglePlayer::frame(const FrameRequest &request) const {
 Animation::FrameInfo SinglePlayer::frameInfo(
 		const FrameRequest &request) const {
 	return _animation.frameInfo(request);
+}
+
+Information SinglePlayer::information() const {
+	return _animation.information();
 }
 
 void SinglePlayer::checkStep() {

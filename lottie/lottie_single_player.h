@@ -61,18 +61,21 @@ public:
 	[[nodiscard]] QImage frame(const FrameRequest &request) const;
 	[[nodiscard]] Animation::FrameInfo frameInfo(
 		const FrameRequest &request) const;
+	[[nodiscard]] Information information() const;
 
 private:
 	void checkNextFrameAvailability();
 	void checkNextFrameRender();
 
-	Animation _animation;
 	base::Timer _timer;
 	const std::shared_ptr<FrameRenderer> _renderer;
 	SharedState *_state = nullptr;
 	crl::time _nextFrameTime = kTimeUnknown;
 	rpl::event_stream<Update, Error> _updates;
+
 	rpl::lifetime _lifetime;
+
+	Animation _animation;
 
 };
 

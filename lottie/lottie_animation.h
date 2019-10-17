@@ -64,13 +64,14 @@ public:
 	[[nodiscard]] QImage frame() const;
 	[[nodiscard]] QImage frame(const FrameRequest &request) const;
 	[[nodiscard]] FrameInfo frameInfo(const FrameRequest &request) const;
+	[[nodiscard]] Information information() const;
 
 private:
 	void initDone(details::InitData &&data);
 	void parseDone(std::unique_ptr<SharedState> state);
 	void parseFailed(Error error);
 
-	not_null<Player*> _player;
+	const not_null<Player*> _player;
 	SharedState *_state = nullptr;
 
 };

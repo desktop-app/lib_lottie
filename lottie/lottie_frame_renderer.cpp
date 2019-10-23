@@ -108,10 +108,11 @@ private:
 [[nodiscard]] QImage PrepareByRequest(
 		const QImage &original,
 		const FrameRequest &request,
+		bool useCache,
 		QImage storage) {
 	Expects(!request.box.isEmpty());
 
-	const auto size = request.size(original.size());
+	const auto size = request.size(original.size(), useCache);
 	if (!GoodStorageForFrame(storage, size)) {
 		storage = CreateFrameStorage(size);
 	}
@@ -141,6 +142,7 @@ QImage PrepareFrameByRequest(
 		frame->prepared = PrepareByRequest(
 			frame->original,
 			frame->request,
+			frame->useCache,
 			std::move(frame->prepared));
 	}
 	return frame->prepared;
@@ -321,7 +323,7 @@ void SharedState::renderFrame(
 
 	const auto size = request.box.isEmpty()
 		? _info.size
-		: request.size(_info.size);
+		: request.size(_info.size, useCache());
 	if (!GoodStorageForFrame(image, size)) {
 		image = CreateFrameStorage(size);
 	}
@@ -347,6 +349,14 @@ void SharedState::renderFrame(
 			_animation = nullptr;
 		}
 	}
+#endif // LOTTIE_USE_CACHE
+}
+
+bool SharedState::useCache() const {
+#ifdef LOTTIE_USE_CACHE
+	return (_cache != nullptr);
+#else // LOTTIE_USE_CACHE
+	return false;
 #endif // LOTTIE_USE_CACHE
 }
 
@@ -396,6 +406,7 @@ void SharedState::renderNextFrame(
 	frame->request = request;
 	PrepareFrameByRequest(frame);
 	frame->index = _frameIndex;
+	frame->useCache = useCache();
 	frame->displayed = kTimeUnknown;
 }
 

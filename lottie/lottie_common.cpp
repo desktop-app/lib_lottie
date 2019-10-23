@@ -22,15 +22,16 @@ QByteArray ReadFile(const QString &filepath) {
 
 } // namespace
 
-QSize FrameRequest::size(const QSize &original) const {
+QSize FrameRequest::size(const QSize &original, bool useCache) const {
 	Expects(!empty());
 
+	const auto divider = useCache ? 8 : 2;
 	const auto result = original.scaled(box, Qt::KeepAspectRatio);
-	const auto skipw = result.width() % 8;
-	const auto skiph = result.height() % 8;
+	const auto skipw = result.width() % divider;
+	const auto skiph = result.height() % divider;
 	return QSize(
-		std::max(result.width() - skipw, 8),
-		std::max(result.height() - skiph, 8));
+		std::max(result.width() - skipw, divider),
+		std::max(result.height() - skiph, divider));
 }
 
 QByteArray ReadContent(const QByteArray &data, const QString &filepath) {

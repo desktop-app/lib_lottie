@@ -39,7 +39,7 @@ struct FrameRequest {
 	[[nodiscard]] bool empty() const {
 		return box.isEmpty();
 	}
-	[[nodiscard]] QSize size(const QSize &original) const;
+	[[nodiscard]] QSize size(const QSize &original, bool useCache) const;
 
 	[[nodiscard]] bool operator==(const FrameRequest &other) const {
 		return (box == other.box)

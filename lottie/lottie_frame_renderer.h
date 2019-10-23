@@ -39,6 +39,7 @@ struct Frame {
 	crl::time displayed = kDisplayedInitial;
 	crl::time display = kTimeUnknown;
 	int index = 0;
+	bool useCache = false;
 
 	FrameRequest request;
 	QImage prepared;
@@ -104,6 +105,7 @@ private:
 		not_null<Frame*> frame,
 		const FrameRequest &request);
 	bool renderFromCache(QImage &to, const FrameRequest &request, int index);
+	[[nodiscard]] bool useCache() const;
 	[[nodiscard]] crl::time countFrameDisplayTime(int index) const;
 	[[nodiscard]] not_null<Frame*> getFrame(int index);
 	[[nodiscard]] not_null<const Frame*> getFrame(int index) const;

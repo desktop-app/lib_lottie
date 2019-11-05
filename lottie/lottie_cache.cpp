@@ -385,7 +385,7 @@ void Cache::init(
 		int frameRate,
 		int framesCount,
 		const FrameRequest &request) {
-	_size = request.size(original);
+	_size = request.size(original, true);
 	_original = original;
 	_frameRate = frameRate;
 	_framesCount = framesCount;
@@ -442,7 +442,7 @@ bool Cache::readHeader(const FrameRequest &request) {
 		|| (framesCount > kMaxFramesCount)
 		|| (framesReady <= 0)
 		|| (framesReady > framesCount)
-		|| request.size(original) != size) {
+		|| request.size(original, true) != size) {
 		return false;
 	}
 	_encoder = static_cast<Encoder>(encoder);
@@ -469,7 +469,7 @@ bool Cache::renderFrame(
 
 	if (index >= _framesReady) {
 		return false;
-	} else if (request.size(_original) != _size) {
+	} else if (request.size(_original, true) != _size) {
 		return false;
 	} else if (index == 0) {
 		_offset = headerSize();
@@ -496,7 +496,7 @@ void Cache::appendFrame(
 		const QImage &frame,
 		const FrameRequest &request,
 		int index) {
-	if (request.size(_original) != _size) {
+	if (request.size(_original, true) != _size) {
 		_framesReady = 0;
 		_data = QByteArray();
 	}
@@ -504,7 +504,7 @@ void Cache::appendFrame(
 		return;
 	}
 	if (index == 0) {
-		_size = request.size(_original);
+		_size = request.size(_original, true);
 		_encode = EncodeFields();
 		_encode.compressedFrames.reserve(_framesCount);
 		prepareBuffers();

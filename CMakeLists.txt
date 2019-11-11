@@ -29,8 +29,6 @@ PUBLIC
 target_include_directories(lib_lottie
 PUBLIC
     ${src_loc}
-PRIVATE
-    ${libs_loc}/zlib
 )
 
 target_link_libraries(lib_lottie
@@ -40,4 +38,5 @@ PUBLIC
     lib_rlottie
 PRIVATE
     lib_lz4
+    external_zlib
 )

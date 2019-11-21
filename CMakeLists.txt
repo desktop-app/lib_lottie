@@ -21,10 +21,14 @@ PRIVATE
 )
 nice_target_sources(lib_lottie ${src_loc} "${lib_lottie_sources}")
 
-target_compile_definitions(lib_lottie
-PUBLIC
-    LOTTIE_USE_CACHE
-)
+if (DESKTOP_APP_LOTTIE_USE_CACHE)
+    target_compile_definitions(lib_lottie PUBLIC LOTTIE_USE_CACHE)
+    target_link_libraries(lib_lottie
+    PUBLIC
+        lib_ffmpeg
+        external_lz4
+    )
+endif()
 
 target_include_directories(lib_lottie
 PUBLIC
@@ -34,9 +38,7 @@ PUBLIC
 target_link_libraries(lib_lottie
 PUBLIC
     lib_ui
-    lib_ffmpeg
     lib_rlottie
 PRIVATE
-    lib_lz4
     external_zlib
 )

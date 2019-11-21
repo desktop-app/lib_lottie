@@ -1,4 +1,11 @@
+# This file is part of Desktop App Toolkit,
+# a set of libraries for developing nice desktop applications.
+#
+# For license and copyright information please follow this link:
+# https://github.com/desktop-app/legal/blob/master/LEGAL
+
 add_library(lib_lottie OBJECT)
+add_library(desktop-app::lib_lottie ALIAS lib_lottie)
 init_target(lib_lottie)
 
 get_filename_component(src_loc . REALPATH)
@@ -25,8 +32,8 @@ if (DESKTOP_APP_LOTTIE_USE_CACHE)
     target_compile_definitions(lib_lottie PUBLIC LOTTIE_USE_CACHE)
     target_link_libraries(lib_lottie
     PUBLIC
-        lib_ffmpeg
-        external_lz4
+        desktop-app::lib_ffmpeg
+        desktop-app::external_lz4
     )
 endif()
 
@@ -37,8 +44,8 @@ PUBLIC
 
 target_link_libraries(lib_lottie
 PUBLIC
-    lib_ui
-    lib_rlottie
+    desktop-app::lib_ui
+    desktop-app::external_rlottie
 PRIVATE
-    external_zlib
+    desktop-app::external_zlib
 )

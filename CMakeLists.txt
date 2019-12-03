@@ -10,7 +10,7 @@ init_target(lib_lottie)
 
 get_filename_component(src_loc . REALPATH)
 
-set(lib_lottie_sources
+nice_target_sources(lib_lottie ${src_loc}
 PRIVATE
     lottie/lottie_animation.cpp
     lottie/lottie_animation.h
@@ -26,7 +26,6 @@ PRIVATE
     lottie/lottie_single_player.cpp
     lottie/lottie_single_player.h
 )
-nice_target_sources(lib_lottie ${src_loc} "${lib_lottie_sources}")
 
 if (DESKTOP_APP_LOTTIE_USE_CACHE)
     target_compile_definitions(lib_lottie PUBLIC LOTTIE_USE_CACHE)

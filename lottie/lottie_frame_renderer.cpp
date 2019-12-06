@@ -375,6 +375,7 @@ void SharedState::init(QImage cover, const FrameRequest &request) {
 	Expects(!initialized());
 
 	_frames[0].request = request;
+	_frames[0].useCache = useCache();
 	_frames[0].original = std::move(cover);
 }
 
@@ -404,9 +405,9 @@ void SharedState::renderNextFrame(
 		request,
 		(++_frameIndex) % _info.framesCount);
 	frame->request = request;
+	frame->useCache = useCache();
 	PrepareFrameByRequest(frame);
 	frame->index = _frameIndex;
-	frame->useCache = useCache();
 	frame->displayed = kTimeUnknown;
 }
 

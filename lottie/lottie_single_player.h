@@ -66,6 +66,7 @@ public:
 private:
 	void checkNextFrameAvailability();
 	void checkNextFrameRender();
+	void renderFrame(crl::time now);
 
 	base::Timer _timer;
 	const std::shared_ptr<FrameRenderer> _renderer;

@@ -136,13 +136,16 @@ void SinglePlayer::checkNextFrameRender() {
 		}
 	} else {
 		_timer.cancel();
-
-		_state->markFrameDisplayed(now);
-		_state->addTimelineDelay(now - _nextFrameTime);
-
-		_nextFrameTime = kFrameDisplayTimeAlreadyDone;
-		_updates.fire({ DisplayFrameRequest() });
+		renderFrame(now);
 	}
+}
+
+void SinglePlayer::renderFrame(crl::time now) {
+	_state->markFrameDisplayed(now);
+	_state->addTimelineDelay(now - _nextFrameTime);
+
+	_nextFrameTime = kFrameDisplayTimeAlreadyDone;
+	_updates.fire({ DisplayFrameRequest() });
 }
 
 void SinglePlayer::updateFrameRequest(

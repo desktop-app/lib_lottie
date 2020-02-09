@@ -136,6 +136,7 @@ std::unique_ptr<rlottie::Animation> CreateFromContent(
 	const auto string = UnpackGzip(content);
 	Assert(string.size() <= kMaxFileSize);
 
+#ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
 	auto result = rlottie::Animation::loadFromData(
 		string,
 		std::string(),
@@ -144,6 +145,13 @@ std::unique_ptr<rlottie::Animation> CreateFromContent(
 		(replacements
 			? replacements->replacements
 			: std::vector<std::pair<std::uint32_t, std::uint32_t>>()));
+#else
+	auto result = rlottie::Animation::loadFromData(
+		string,
+		std::string(),
+		std::string(),
+		false);
+#endif
 	return result;
 }
 

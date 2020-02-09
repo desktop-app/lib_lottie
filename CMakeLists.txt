@@ -14,8 +14,6 @@ nice_target_sources(lib_lottie ${src_loc}
 PRIVATE
     lottie/lottie_animation.cpp
     lottie/lottie_animation.h
-    lottie/lottie_cache.cpp
-    lottie/lottie_cache.h
     lottie/lottie_common.cpp
     lottie/lottie_common.h
     lottie/lottie_frame_renderer.cpp
@@ -28,6 +26,11 @@ PRIVATE
 )
 
 if (DESKTOP_APP_LOTTIE_USE_CACHE)
+    nice_target_sources(lib_lottie ${src_loc}
+    PRIVATE
+        lottie/lottie_cache.cpp
+        lottie/lottie_cache.h
+    )
     target_compile_definitions(lib_lottie PUBLIC LOTTIE_USE_CACHE)
     target_link_libraries(lib_lottie
     PUBLIC

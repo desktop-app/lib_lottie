@@ -66,12 +66,14 @@ void SinglePlayer::start(
 	state->start(this, crl::now());
 	const auto request = state->frameForPaint()->request;
 	_renderer->append(std::move(state), request);
-	_updates.fire({ std::move(information) });
 
 	crl::on_main_update_requests(
 	) | rpl::start_with_next([=] {
 		checkStep();
 	}, _lifetime);
+
+	// This may destroy the player.
+	_updates.fire({ std::move(information) });
 }
 
 void SinglePlayer::failed(not_null<Animation*> animation, Error error) {

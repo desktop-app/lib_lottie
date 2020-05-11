@@ -7,16 +7,13 @@
 #pragma once
 
 #include "lottie/lottie_common.h"
+#include "lottie/lottie_backend.h"
 #include "base/weak_ptr.h"
 
 #include <QtGui/QImage>
 
 class QString;
 class QByteArray;
-
-namespace rlottie {
-class Animation;
-} // namespace rlottie
 
 namespace Lottie {
 
@@ -31,10 +28,6 @@ QImage ReadThumbnail(const QByteArray &content);
 namespace details {
 
 using InitData = base::variant<std::unique_ptr<SharedState>, Error>;
-
-std::unique_ptr<rlottie::Animation> CreateFromContent(
-	const QByteArray &content,
-	const ColorReplacements *replacements);
 
 } // namespace details
 

@@ -14,6 +14,8 @@ nice_target_sources(lib_lottie ${src_loc}
 PRIVATE
     lottie/lottie_animation.cpp
     lottie/lottie_animation.h
+    lottie/lottie_backend.cpp
+    lottie/lottie_backend.h
     lottie/lottie_common.cpp
     lottie/lottie_common.h
     lottie/lottie_frame_renderer.cpp
@@ -47,7 +49,22 @@ PUBLIC
 target_link_libraries(lib_lottie
 PUBLIC
     desktop-app::lib_ui
-    desktop-app::external_rlottie
+)
+
+if (DESKTOP_APP_USE_SKOTTIE)
+    target_compile_definitions(lib_lottie PUBLIC LOTTIE_USE_SKOTTIE)
+    target_link_libraries(lib_lottie
+    PUBLIC
+        desktop-app::external_skottie
+    )
+else()
+    target_link_libraries(lib_lottie
+    PUBLIC
+        desktop-app::external_rlottie
+    )
+endif()
+
+target_link_libraries(lib_lottie
 PRIVATE
     desktop-app::external_zlib
 )

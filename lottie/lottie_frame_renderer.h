@@ -9,16 +9,13 @@
 #include "base/basic_types.h"
 #include "base/weak_ptr.h"
 #include "lottie/lottie_common.h"
+#include "lottie/lottie_backend.h"
 
 #include <QImage>
 #include <QSize>
 #include <crl/crl_time.h>
 #include <crl/crl_object_on_queue.h>
 #include <limits>
-
-namespace rlottie {
-class Animation;
-} // namespace rlottie
 
 namespace Lottie {
 
@@ -52,7 +49,7 @@ QImage PrepareFrameByRequest(
 class SharedState {
 public:
 	SharedState(
-		std::unique_ptr<rlottie::Animation> animation,
+		std::unique_ptr<details::BackendClass> animation,
 		const FrameRequest &request,
 		Quality quality);
 
@@ -60,7 +57,7 @@ public:
 	SharedState(
 		const QByteArray &content,
 		const ColorReplacements *replacements,
-		std::unique_ptr<rlottie::Animation> animation,
+		std::unique_ptr<details::BackendClass> animation,
 		std::unique_ptr<Cache> cache,
 		const FrameRequest &request,
 		Quality quality);
@@ -95,7 +92,7 @@ public:
 private:
 	static Information CalculateInformation(
 		Quality quality,
-		rlottie::Animation *animation,
+		details::BackendClass *animation,
 		Cache *cache);
 
 	void construct(const FrameRequest &request);
@@ -135,7 +132,7 @@ private:
 	const std::unique_ptr<Cache> _cache;
 #endif // LOTTIE_USE_CACHE
 
-	std::unique_ptr<rlottie::Animation> _animation;
+	std::unique_ptr<details::BackendClass> _animation;
 	const QByteArray _content;
 	const ColorReplacements *_replacements = nullptr;
 

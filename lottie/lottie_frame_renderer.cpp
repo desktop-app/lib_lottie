@@ -7,6 +7,7 @@
 #include "lottie/lottie_frame_renderer.h"
 
 #include "lottie/lottie_player.h"
+#include "lottie/lottie_backend.h"
 #include "lottie/lottie_animation.h"
 #include "base/flat_map.h"
 
@@ -15,9 +16,12 @@
 #endif // LOTTIE_USE_CACHE
 
 #include <QPainter>
-#include <rlottie.h>
 #include <range/v3/algorithm/find.hpp>
 #include <range/v3/algorithm/count_if.hpp>
+
+#ifndef LOTTIE_USE_SKOTTIE
+#include <rlottie.h>
+#endif // LOTTIE_USE_SKOTTIE
 
 namespace Images {
 QImage prepareColored(QColor add, QImage image);
@@ -26,9 +30,11 @@ QImage prepareColored(QColor add, QImage image);
 namespace Lottie {
 namespace {
 
-std::weak_ptr<FrameRenderer> GlobalInstance;
+using namespace details;
 
 constexpr auto kImageFormat = QImage::Format_ARGB32_Premultiplied;
+
+std::weak_ptr<FrameRenderer> GlobalInstance;
 
 bool GoodStorageForFrame(const QImage &storage, QSize size) {
 	return !storage.isNull()
@@ -41,19 +47,22 @@ QImage CreateFrameStorage(QSize size) {
 	return QImage(size, kImageFormat);
 }
 
-int GetLottieFrameRate(not_null<rlottie::Animation*> animation, Quality quality) {
-	const auto rate = int(qRound(animation->frameRate()));
+int GetLottieFrameRate(not_null<BackendClass*> animation, Quality quality) {
+	const auto rate = details::GetLottieFrameRate(animation);
 	return (quality == Quality::Default && rate == 60) ? (rate / 2) : rate;
 }
 
-int GetLottieFramesCount(not_null<rlottie::Animation*> animation, Quality quality) {
-	const auto rate = int(qRound(animation->frameRate()));
-	const auto count = int(animation->totalFrame());
+int GetLottieFramesCount(not_null<BackendClass*> animation, Quality quality) {
+	const auto rate = details::GetLottieFrameRate(animation);
+	const auto count = details::GetLottieFramesCount(animation);
 	return (quality == Quality::Default && rate == 60) ? (count / 2) : count;
 }
 
-int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality, int index) {
-	const auto rate = int(qRound(animation->frameRate()));
+int GetLottieFrameIndex(
+		not_null<BackendClass*> animation,
+		Quality quality,
+		int index) {
+	const auto rate = details::GetLottieFrameRate(animation);
 	return (quality == Quality::Default && rate == 60) ? (index * 2) : index;
 }
 
@@ -215,19 +224,14 @@ void FrameRendererObject::queueGenerateFrames() {
 
 Information SharedState::CalculateInformation(
 		Quality quality,
-		rlottie::Animation *animation,
+		BackendClass *animation,
 		Cache *cache) {
 	Expects(animation != nullptr || cache != nullptr);
 
 #ifdef LOTTIE_USE_CACHE
-	auto width = size_t(0);
-	auto height = size_t(0);
-	if (animation) {
-		animation->size(width, height);
-	} else {
-		width = cache->originalSize().width();
-		height = cache->originalSize().height();
-	}
+	const auto size = animation
+		? GetLottieFrameSize(animation)
+		: cache->originalSize();
 	const auto rate = animation
 		? GetLottieFrameRate(animation, quality)
 		: cache->frameRate();
@@ -235,17 +239,17 @@ Information SharedState::CalculateInformation(
 		? GetLottieFramesCount(animation, quality)
 		: cache->framesCount();
 #else // LOTTIE_USE_CACHE
-	auto width = size_t(0);
-	auto height = size_t(0);
-	animation->size(width, height);
+	const auto size = GetLottieFrameSize(animation);
 	const auto rate = GetLottieFrameRate(animation, quality);
 	const auto count = GetLottieFramesCount(animation, quality);
 #endif // LOTTIE_USE_CACHE
 
 	auto result = Information();
 	result.size = QSize(
-		(width > 0 && width <= kMaxSize) ? int(width) : 0,
-		(height > 0 && height <= kMaxSize) ? int(height) : 0);
+		(size.width() > 0 && size.width() <= kMaxSize) ? size.width() : 0,
+		((size.height() > 0 && size.height() <= kMaxSize)
+			? size.height()
+			: 0));
 	result.frameRate = (rate > 0 && rate <= kMaxFrameRate) ? int(rate) : 0;
 	result.framesCount = (count > 0 && count <= kMaxFramesCount)
 		? int(count)
@@ -254,7 +258,7 @@ Information SharedState::CalculateInformation(
 }
 
 SharedState::SharedState(
-	std::unique_ptr<rlottie::Animation> animation,
+	std::unique_ptr<BackendClass> animation,
 	const FrameRequest &request,
 	Quality quality)
 : _info(CalculateInformation(quality, animation.get(), nullptr))
@@ -267,7 +271,7 @@ SharedState::SharedState(
 SharedState::SharedState(
 	const QByteArray &content,
 	const ColorReplacements *replacements,
-	std::unique_ptr<rlottie::Animation> animation,
+	std::unique_ptr<BackendClass> animation,
 	std::unique_ptr<Cache> cache,
 	const FrameRequest &request,
 	Quality quality)
@@ -330,18 +334,17 @@ void SharedState::renderFrame(
 	if (renderFromCache(image, request, index)) {
 		return;
 	} else if (!_animation) {
-		_animation = details::CreateFromContent(_content, _replacements);
+		_animation = CreateFromContent(_content, _replacements);
 	}
 
 	image.fill(Qt::transparent);
-	auto surface = rlottie::Surface(
-		reinterpret_cast<uint32_t*>(image.bits()),
+	RenderLottieFrame(
+		_animation.get(),
+		GetLottieFrameIndex(_animation.get(), _quality, index),
+		image.bits(),
 		image.width(),
 		image.height(),
 		image.bytesPerLine());
-	_animation->renderSync(
-		GetLottieFrameIndex(_animation.get(), _quality, index),
-		surface);
 #ifdef LOTTIE_USE_CACHE
 	if (_cache) {
 		_cache->appendFrame(image, request, index);

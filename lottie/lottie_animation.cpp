@@ -9,55 +9,23 @@
 #include "lottie/lottie_frame_renderer.h"
 #include "lottie/lottie_player.h"
 #include "base/algorithm.h"
-#include "zlib.h"
 
 #ifdef LOTTIE_USE_CACHE
 #include "lottie/lottie_cache.h"
 #endif // LOTTIE_USE_CACHE
 
 #include <QFile>
-#include <rlottie.h>
 #include <crl/crl_async.h>
 #include <crl/crl_on_main.h>
+
+#ifndef LOTTIE_USE_SKOTTIE
+#include <rlottie.h>
+#endif // LOTTIE_USE_SKOTTIE
 
 namespace Lottie {
 namespace {
 
 const auto kIdealSize = QSize(512, 512);
-
-std::string UnpackGzip(const QByteArray &bytes) {
-	const auto original = [&] {
-		return std::string(bytes.constData(), bytes.size());
-	};
-	z_stream stream;
-	stream.zalloc = nullptr;
-	stream.zfree = nullptr;
-	stream.opaque = nullptr;
-	stream.avail_in = 0;
-	stream.next_in = nullptr;
-	int res = inflateInit2(&stream, 16 + MAX_WBITS);
-	if (res != Z_OK) {
-		return original();
-	}
-	const auto guard = gsl::finally([&] { inflateEnd(&stream); });
-
-	auto result = std::string(kMaxFileSize + 1, char(0));
-	stream.avail_in = bytes.size();
-	stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(bytes.data()));
-	stream.avail_out = 0;
-	while (!stream.avail_out) {
-		stream.avail_out = result.size();
-		stream.next_out = reinterpret_cast<Bytef*>(result.data());
-		int res = inflate(&stream, Z_NO_FLUSH);
-		if (res != Z_OK && res != Z_STREAM_END) {
-			return original();
-		} else if (!stream.avail_out) {
-			return original();
-		}
-	}
-	result.resize(result.size() - stream.avail_out);
-	return result;
-}
 
 std::optional<Error> ContentError(const QByteArray &content) {
 	if (content.size() > kMaxFileSize) {
@@ -127,35 +95,6 @@ details::InitData Init(
 #endif // LOTTIE_USE_CACHE
 
 } // namespace
-
-namespace details {
-
-std::unique_ptr<rlottie::Animation> CreateFromContent(
-		const QByteArray &content,
-		const ColorReplacements *replacements) {
-	const auto string = UnpackGzip(content);
-	Assert(string.size() <= kMaxFileSize);
-
-#ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
-	auto result = rlottie::Animation::loadFromData(
-		string,
-		std::string(),
-		std::string(),
-		false,
-		(replacements
-			? replacements->replacements
-			: std::vector<std::pair<std::uint32_t, std::uint32_t>>()));
-#else
-	auto result = rlottie::Animation::loadFromData(
-		string,
-		std::string(),
-		std::string(),
-		false);
-#endif
-	return result;
-}
-
-} // namespace details
 
 std::shared_ptr<FrameRenderer> MakeFrameRenderer() {
 	return FrameRenderer::CreateIndependent();

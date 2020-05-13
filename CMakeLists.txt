@@ -47,7 +47,7 @@ PUBLIC
 target_link_libraries(lib_lottie
 PUBLIC
     desktop-app::lib_ui
-    desktop-app::external_rlottie
 PRIVATE
+    desktop-app::external_rlottie
     desktop-app::external_zlib
 )

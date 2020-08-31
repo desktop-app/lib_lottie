@@ -7,12 +7,12 @@
 #pragma once
 
 #include "base/basic_types.h"
-#include "base/variant.h"
 
 #include <QSize>
 #include <QColor>
 #include <crl/crl_time.h>
 #include <vector>
+#include <optional>
 
 namespace Lottie {
 

@@ -9,6 +9,8 @@
 #include "lottie/lottie_frame_renderer.h"
 #include "lottie/lottie_player.h"
 #include "base/algorithm.h"
+#include "base/assertion.h"
+#include "base/variant.h"
 #include "zlib.h"
 
 #ifdef LOTTIE_USE_CACHE

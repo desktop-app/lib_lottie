@@ -10,6 +10,7 @@
 #include "base/weak_ptr.h"
 
 #include <QtGui/QImage>
+#include <variant>
 
 class QString;
 class QByteArray;

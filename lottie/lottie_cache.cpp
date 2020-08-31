@@ -9,6 +9,7 @@
 #include "lottie/lottie_frame_renderer.h"
 #include "ffmpeg/ffmpeg_utility.h"
 #include "base/bytes.h"
+#include "base/assertion.h"
 
 #include <QDataStream>
 #include <lz4.h>

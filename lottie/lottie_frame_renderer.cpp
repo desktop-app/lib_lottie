@@ -9,6 +9,7 @@
 #include "lottie/lottie_player.h"
 #include "lottie/lottie_animation.h"
 #include "base/flat_map.h"
+#include "base/assertion.h"
 
 #ifdef LOTTIE_USE_CACHE
 #include "lottie/lottie_cache.h"

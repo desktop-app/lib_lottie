@@ -20,7 +20,7 @@ struct DisplayFrameRequest {
 };
 
 struct Update {
-	base::variant<
+	std::variant<
 		Information,
 		DisplayFrameRequest> data;
 };

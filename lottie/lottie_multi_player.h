@@ -20,7 +20,7 @@ class Animation;
 class FrameRenderer;
 
 struct MultiUpdate {
-	//base::variant<
+	//std::variant<
 	//	std::pair<Animation*, Information>,
 	//	DisplayMultiFrameRequest,
 	//	std::pair<Animation*, Error>> data;

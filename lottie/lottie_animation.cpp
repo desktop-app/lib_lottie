@@ -162,7 +162,7 @@ std::shared_ptr<FrameRenderer> MakeFrameRenderer() {
 }
 
 QImage ReadThumbnail(const QByteArray &content) {
-	return Init(content, FrameRequest(), Quality::High, nullptr).match([](
+	return v::match(Init(content, FrameRequest(), Quality::High, nullptr), [](
 			const std::unique_ptr<SharedState> &state) {
 		return state->frameForPaint()->original;
 	}, [](Error) {
@@ -225,7 +225,7 @@ bool Animation::ready() const {
 }
 
 void Animation::initDone(details::InitData &&data) {
-	data.match([&](std::unique_ptr<SharedState> &state) {
+	v::match(data, [&](std::unique_ptr<SharedState> &state) {
 		parseDone(std::move(state));
 	}, [&](Error error) {
 		parseFailed(error);

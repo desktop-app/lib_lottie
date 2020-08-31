@@ -30,7 +30,7 @@ QImage ReadThumbnail(const QByteArray &content);
 
 namespace details {
 
-using InitData = base::variant<std::unique_ptr<SharedState>, Error>;
+using InitData = std::variant<std::unique_ptr<SharedState>, Error>;
 
 std::unique_ptr<rlottie::Animation> CreateFromContent(
 	const QByteArray &content,

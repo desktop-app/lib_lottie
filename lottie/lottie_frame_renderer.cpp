@@ -123,7 +123,6 @@ private:
 		QPainter p(&storage);
 		p.setRenderHint(QPainter::Antialiasing);
 		p.setRenderHint(QPainter::SmoothPixmapTransform);
-		p.setRenderHint(QPainter::HighQualityAntialiasing);
 		p.drawImage(QRect(QPoint(), size), original);
 	}
 	if (request.colored.has_value()) {

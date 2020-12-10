@@ -12,6 +12,7 @@
 #include "base/assertion.h"
 
 #include <QDataStream>
+#include <QIODevice>
 #include <lz4.h>
 #include <lz4hc.h>
 #include <range/v3/numeric/accumulate.hpp>

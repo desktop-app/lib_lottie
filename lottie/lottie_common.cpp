@@ -38,4 +38,15 @@ QByteArray ReadContent(const QByteArray &data, const QString &filepath) {
 	return data.isEmpty() ? ReadFile(filepath) : base::duplicate(data);
 }
 
+bool GoodStorageForFrame(const QImage &storage, QSize size) {
+	return !storage.isNull()
+		&& (storage.format() == kImageFormat)
+		&& (storage.size() == size)
+		&& storage.isDetached();
+}
+
+QImage CreateFrameStorage(QSize size) {
+	return QImage(size, kImageFormat);
+}
+
 } // namespace Lottie

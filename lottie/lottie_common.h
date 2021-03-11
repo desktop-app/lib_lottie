@@ -10,6 +10,7 @@
 
 #include <QSize>
 #include <QColor>
+#include <QImage>
 #include <crl/crl_time.h>
 #include <vector>
 #include <optional>
@@ -18,6 +19,8 @@ namespace Lottie {
 
 inline constexpr auto kTimeUnknown = std::numeric_limits<crl::time>::min();
 inline constexpr auto kMaxFileSize = 2 * 1024 * 1024;
+
+constexpr auto kImageFormat = QImage::Format_ARGB32_Premultiplied;
 
 class Animation;
 
@@ -62,5 +65,7 @@ struct ColorReplacements {
 };
 
 QByteArray ReadContent(const QByteArray &data, const QString &filepath);
+bool GoodStorageForFrame(const QImage &storage, QSize size);
+QImage CreateFrameStorage(QSize size);
 
 } // namespace Lottie

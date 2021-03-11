@@ -29,19 +29,6 @@ namespace {
 
 std::weak_ptr<FrameRenderer> GlobalInstance;
 
-constexpr auto kImageFormat = QImage::Format_ARGB32_Premultiplied;
-
-bool GoodStorageForFrame(const QImage &storage, QSize size) {
-	return !storage.isNull()
-		&& (storage.format() == kImageFormat)
-		&& (storage.size() == size)
-		&& storage.isDetached();
-}
-
-QImage CreateFrameStorage(QSize size) {
-	return QImage(size, kImageFormat);
-}
-
 int GetLottieFrameRate(not_null<rlottie::Animation*> animation, Quality quality) {
 	const auto rate = int(qRound(animation->frameRate()));
 	return (quality == Quality::Default && rate == 60) ? (rate / 2) : rate;

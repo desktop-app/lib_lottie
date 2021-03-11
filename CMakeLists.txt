@@ -23,6 +23,8 @@ PRIVATE
     lottie/lottie_player.h
     lottie/lottie_single_player.cpp
     lottie/lottie_single_player.h
+    lottie/lottie_icon.cpp
+    lottie/lottie_icon.h
 )
 
 if (DESKTOP_APP_LOTTIE_USE_CACHE)

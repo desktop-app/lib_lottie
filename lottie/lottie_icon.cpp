@@ -11,6 +11,7 @@
 
 #include <QtGui/QPainter>
 #include <crl/crl_async.h>
+#include <crl/crl_semaphore.h>
 #include <crl/crl_on_main.h>
 #include <rlottie.h>
 

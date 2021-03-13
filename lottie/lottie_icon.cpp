@@ -126,7 +126,7 @@ void Icon::Inner::prepareFromAsync(
 		? style::ConvertScale(QSize{ int(width), int(height) })
 		: sizeOverride;
 	auto &image = _current.renderedImage;
-	image = CreateFrameStorage(size);
+	image = CreateFrameStorage(size * style::DevicePixelRatio());
 	image.fill(Qt::transparent);
 	auto surface = rlottie::Surface(
 		reinterpret_cast<uint32_t*>(image.bits()),

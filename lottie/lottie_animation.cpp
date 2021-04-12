@@ -27,7 +27,7 @@ namespace {
 
 const auto kIdealSize = QSize(512, 512);
 
-std::string UnpackGzip(const QByteArray &bytes) {
+[[nodiscard]] QByteArray UnpackGzip(const QByteArray &bytes) {
 	const auto original = [&] {
 		return std::string(bytes.constData(), bytes.size());
 	};
@@ -39,11 +39,11 @@ std::string UnpackGzip(const QByteArray &bytes) {
 	stream.next_in = nullptr;
 	int res = inflateInit2(&stream, 16 + MAX_WBITS);
 	if (res != Z_OK) {
-		return original();
+		return bytes;
 	}
 	const auto guard = gsl::finally([&] { inflateEnd(&stream); });
 
-	auto result = std::string(kMaxFileSize + 1, char(0));
+	auto result = QByteArray(kMaxFileSize + 1, char(0));
 	stream.avail_in = bytes.size();
 	stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(bytes.data()));
 	stream.avail_out = 0;
@@ -52,9 +52,9 @@ std::string UnpackGzip(const QByteArray &bytes) {
 		stream.next_out = reinterpret_cast<Bytef*>(result.data());
 		int res = inflate(&stream, Z_NO_FLUSH);
 		if (res != Z_OK && res != Z_STREAM_END) {
-			return original();
+			return bytes;
 		} else if (!stream.avail_out) {
-			return original();
+			return bytes;
 		}
 	}
 	result.resize(result.size() - stream.avail_out);
@@ -135,7 +135,7 @@ namespace details {
 std::unique_ptr<rlottie::Animation> CreateFromContent(
 		const QByteArray &content,
 		const ColorReplacements *replacements) {
-	const auto string = UnpackGzip(content);
+	const auto string = ReadUtf8(UnpackGzip(content));
 	Assert(string.size() <= kMaxFileSize);
 
 #ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE

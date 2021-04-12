@@ -64,8 +64,11 @@ struct ColorReplacements {
 	uint8 tag = 0;
 };
 
-QByteArray ReadContent(const QByteArray &data, const QString &filepath);
-bool GoodStorageForFrame(const QImage &storage, QSize size);
-QImage CreateFrameStorage(QSize size);
+[[nodiscard]] QByteArray ReadContent(
+	const QByteArray &data,
+	const QString &filepath);
+[[nodiscard]] std::string ReadUtf8(const QByteArray &data);
+[[nodiscard]] bool GoodStorageForFrame(const QImage &storage, QSize size);
+[[nodiscard]] QImage CreateFrameStorage(QSize size);
 
 } // namespace Lottie

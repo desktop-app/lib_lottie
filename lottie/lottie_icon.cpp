@@ -21,7 +21,7 @@ namespace {
 [[nodiscard]] std::unique_ptr<rlottie::Animation> CreateFromContent(
 		const QByteArray &content,
 		QColor replacement) {
-	auto string = std::string(content.data(), content.size());
+	auto string = ReadUtf8(content);
 #ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
 	auto list = std::vector<std::pair<std::uint32_t, std::uint32_t>>();
 	if (replacement != Qt::white) {

@@ -331,7 +331,6 @@ void MultiPlayer::updateFrameRequest(
 		not_null<const Animation*> animation,
 		const FrameRequest &request) {
 	const auto state = [&]() -> Lottie::SharedState* {
-		const auto key = animation;
 		if (const auto i = _active.find(animation); i != end(_active)) {
 			return i->second;
 		} else if (const auto j = _paused.find(animation);

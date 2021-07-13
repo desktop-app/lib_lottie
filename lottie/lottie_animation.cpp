@@ -28,9 +28,6 @@ namespace {
 const auto kIdealSize = QSize(512, 512);
 
 [[nodiscard]] QByteArray UnpackGzip(const QByteArray &bytes) {
-	const auto original = [&] {
-		return std::string(bytes.constData(), bytes.size());
-	};
 	z_stream stream;
 	stream.zalloc = nullptr;
 	stream.zfree = nullptr;

@@ -11,7 +11,6 @@
 #include "base/algorithm.h"
 #include "base/assertion.h"
 #include "base/variant.h"
-#include "zlib.h"
 
 #ifdef LOTTIE_USE_CACHE
 #include "lottie/lottie_cache.h"
@@ -26,37 +25,6 @@ namespace Lottie {
 namespace {
 
 const auto kIdealSize = QSize(512, 512);
-
-[[nodiscard]] QByteArray UnpackGzip(const QByteArray &bytes) {
-	z_stream stream;
-	stream.zalloc = nullptr;
-	stream.zfree = nullptr;
-	stream.opaque = nullptr;
-	stream.avail_in = 0;
-	stream.next_in = nullptr;
-	int res = inflateInit2(&stream, 16 + MAX_WBITS);
-	if (res != Z_OK) {
-		return bytes;
-	}
-	const auto guard = gsl::finally([&] { inflateEnd(&stream); });
-
-	auto result = QByteArray(kMaxFileSize + 1, char(0));
-	stream.avail_in = bytes.size();
-	stream.next_in = reinterpret_cast<Bytef*>(const_cast<char*>(bytes.data()));
-	stream.avail_out = 0;
-	while (!stream.avail_out) {
-		stream.avail_out = result.size();
-		stream.next_out = reinterpret_cast<Bytef*>(result.data());
-		int res = inflate(&stream, Z_NO_FLUSH);
-		if (res != Z_OK && res != Z_STREAM_END) {
-			return bytes;
-		} else if (!stream.avail_out) {
-			return bytes;
-		}
-	}
-	result.resize(result.size() - stream.avail_out);
-	return result;
-}
 
 std::optional<Error> ContentError(const QByteArray &content) {
 	if (content.size() > kMaxFileSize) {

@@ -67,7 +67,6 @@ struct ColorReplacements {
 [[nodiscard]] QByteArray ReadContent(
 	const QByteArray &data,
 	const QString &filepath);
-[[nodiscard]] QByteArray UnpackGzip(const QByteArray &bytes);
 [[nodiscard]] std::string ReadUtf8(const QByteArray &data);
 [[nodiscard]] bool GoodStorageForFrame(const QImage &storage, QSize size);
 [[nodiscard]] QImage CreateFrameStorage(QSize size);

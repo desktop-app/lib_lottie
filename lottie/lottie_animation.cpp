@@ -8,6 +8,7 @@
 
 #include "lottie/lottie_frame_renderer.h"
 #include "lottie/lottie_player.h"
+#include "ui/image/image_prepare.h"
 #include "base/algorithm.h"
 #include "base/assertion.h"
 #include "base/variant.h"
@@ -100,7 +101,7 @@ namespace details {
 std::unique_ptr<rlottie::Animation> CreateFromContent(
 		const QByteArray &content,
 		const ColorReplacements *replacements) {
-	const auto string = ReadUtf8(UnpackGzip(content));
+	const auto string = ReadUtf8(Images::UnpackGzip(content));
 	Assert(string.size() <= kMaxFileSize);
 
 #ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE

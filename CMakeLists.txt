@@ -51,5 +51,4 @@ PUBLIC
     desktop-app::lib_ui
 PRIVATE
     desktop-app::external_rlottie
-    desktop-app::external_zlib
 )

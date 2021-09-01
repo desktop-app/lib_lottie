@@ -102,7 +102,9 @@ std::unique_ptr<rlottie::Animation> CreateFromContent(
 		const QByteArray &content,
 		const ColorReplacements *replacements) {
 	const auto string = ReadUtf8(Images::UnpackGzip(content));
-	Assert(string.size() <= kMaxFileSize);
+	if (string.size() > kMaxFileSize) {
+		return nullptr;
+	}
 
 #ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
 	auto result = rlottie::Animation::loadFromData(

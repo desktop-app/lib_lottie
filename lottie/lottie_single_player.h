@@ -41,7 +41,6 @@ public:
 		Quality quality = Quality::Default,
 		const ColorReplacements *replacements = nullptr,
 		std::shared_ptr<FrameRenderer> renderer = nullptr);
-
 	~SinglePlayer();
 
 	void start(
@@ -54,7 +53,7 @@ public:
 	bool markFrameShown() override;
 	void checkStep() override;
 
-	rpl::producer<Update, Error> updates() const;
+	[[nodiscard]] rpl::producer<Update, Error> updates() const;
 
 	[[nodiscard]] bool ready() const;
 	[[nodiscard]] QImage frame() const;
@@ -62,6 +61,10 @@ public:
 	[[nodiscard]] Animation::FrameInfo frameInfo(
 		const FrameRequest &request) const;
 	[[nodiscard]] Information information() const;
+
+	[[nodiscard]] rpl::lifetime &lifetime() {
+		return _lifetime;
+	}
 
 private:
 	void checkNextFrameAvailability();

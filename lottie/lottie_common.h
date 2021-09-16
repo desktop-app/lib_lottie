@@ -38,6 +38,7 @@ enum class Error {
 struct FrameRequest {
 	QSize box;
 	std::optional<QColor> colored;
+	bool mirrorHorizontal = false;
 
 	[[nodiscard]] bool empty() const {
 		return box.isEmpty();
@@ -46,7 +47,8 @@ struct FrameRequest {
 
 	[[nodiscard]] bool operator==(const FrameRequest &other) const {
 		return (box == other.box)
-			&& (colored == other.colored);
+			&& (colored == other.colored)
+			&& (mirrorHorizontal == other.mirrorHorizontal);
 	}
 	[[nodiscard]] bool operator!=(const FrameRequest &other) const {
 		return !(*this == other);

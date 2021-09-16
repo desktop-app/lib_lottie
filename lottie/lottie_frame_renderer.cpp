@@ -85,7 +85,7 @@ private:
 		const FrameRequest &request) {
 	if (request.box.isEmpty()) {
 		return true;
-	} else if (request.colored.has_value()) {
+	} else if (request.colored.has_value() || request.mirrorHorizontal) {
 		return false;
 	}
 	const auto size = image.size();
@@ -111,6 +111,9 @@ private:
 		p.setRenderHint(QPainter::Antialiasing);
 		p.setRenderHint(QPainter::SmoothPixmapTransform);
 		p.drawImage(QRect(QPoint(), size), original);
+	}
+	if (request.mirrorHorizontal) {
+		storage = std::move(storage).mirrored(true, false);
 	}
 	if (request.colored.has_value()) {
 		storage = Images::prepareColored(*request.colored, std::move(storage));

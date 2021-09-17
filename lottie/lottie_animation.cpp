@@ -16,6 +16,7 @@
 
 #ifdef LOTTIE_USE_CACHE
 #include "lottie/details/lottie_frame_provider_cached.h"
+#include "lottie/details/lottie_frame_provider_cached_multi.h"
 #endif // LOTTIE_USE_CACHE
 
 #include <QFile>
@@ -90,6 +91,32 @@ details::InitData Init(
 			request.empty() ? FrameRequest{ kIdealSize } : request))
 		: Error::ParseFailed;
 }
+
+details::InitData Init(
+		const QByteArray &content,
+		FnMut<void(int, QByteArray &&cached)> put,
+		std::vector<QByteArray> caches,
+		const FrameRequest &request,
+		Quality quality,
+		const ColorReplacements *replacements) {
+	Expects(!request.empty());
+
+	if (const auto error = ContentError(content)) {
+		return *error;
+	}
+	auto provider = std::make_shared<FrameProviderCachedMulti>(
+		content,
+		std::move(put),
+		std::move(caches),
+		request,
+		quality,
+		replacements);
+	return provider->valid()
+		? CheckSharedState(std::make_unique<SharedState>(
+			std::move(provider),
+			request.empty() ? FrameRequest{ kIdealSize } : request))
+		: Error::ParseFailed;
+}
 #endif // LOTTIE_USE_CACHE
 
 } // namespace
@@ -152,6 +179,52 @@ Animation::Animation(
 			});
 		});
 	});
+#else // LOTTIE_USE_CACHE
+: Animation(player, content, request, quality, replacements) {
+#endif // LOTTIE_USE_CACHE
+}
+
+Animation::Animation(
+	not_null<Player*> player,
+	int keysCount,
+	FnMut<void(int, FnMut<void(QByteArray &&)>)> get,
+	FnMut<void(int, QByteArray &&cached)> put,
+	const QByteArray &content,
+	const FrameRequest &request,
+	Quality quality,
+	const ColorReplacements *replacements)
+#ifdef LOTTIE_USE_CACHE
+: _player(player) {
+	const auto weak = base::make_weak(this);
+	struct State {
+		std::atomic<int> left = 0;
+		std::vector<QByteArray> caches;
+		FnMut<void(int, QByteArray &&cached)> put;
+	};
+	const auto state = std::make_shared<State>();
+	state->left = keysCount;
+	state->put = std::move(put);
+	state->caches.resize(keysCount);
+	for (auto i = 0; i != keysCount; ++i) {
+		get(i, [=](QByteArray &&cached) {
+			state->caches[i] = std::move(cached);
+			if (--state->left) {
+				return;
+			}
+			crl::async([=] {
+				auto result = Init(
+					content,
+					std::move(state->put),
+					std::move(state->caches),
+					request,
+					quality,
+					replacements);
+				crl::on_main(weak, [=, data = std::move(result)]() mutable {
+					initDone(std::move(data));
+				});
+			});
+		});
+	}
 #else // LOTTIE_USE_CACHE
 : Animation(player, content, request, quality, replacements) {
 #endif // LOTTIE_USE_CACHE

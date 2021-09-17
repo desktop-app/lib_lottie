@@ -29,7 +29,6 @@ SinglePlayer::SinglePlayer(
 	Quality quality,
 	const ColorReplacements *replacements,
 	std::shared_ptr<FrameRenderer> renderer)
-#ifdef LOTTIE_USE_CACHE
 : _timer([=] { checkNextFrameRender(); })
 , _renderer(renderer ? renderer : FrameRenderer::Instance())
 , _animation(
@@ -40,14 +39,28 @@ SinglePlayer::SinglePlayer(
 	request,
 	quality,
 	replacements) {
-#else // LOTTIE_USE_CACHE
-: SinglePlayer(
+}
+
+SinglePlayer::SinglePlayer(
+	int keysCount,
+	FnMut<void(int, FnMut<void(QByteArray &&)>)> get,
+	FnMut<void(int, QByteArray &&)> put,
+	const QByteArray &content,
+	const FrameRequest &request,
+	Quality quality,
+	const ColorReplacements *replacements,
+	std::shared_ptr<FrameRenderer> renderer)
+: _timer([=] { checkNextFrameRender(); })
+, _renderer(renderer ? renderer : FrameRenderer::Instance())
+, _animation(
+	this,
+	keysCount,
+	std::move(get),
+	std::move(put),
 	content,
 	request,
 	quality,
-	replacements,
-	std::move(renderer)) {
-#endif // LOTTIE_USE_CACHE
+	replacements) {
 }
 
 SinglePlayer::~SinglePlayer() {

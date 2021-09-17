@@ -39,6 +39,8 @@ if (DESKTOP_APP_LOTTIE_USE_CACHE)
         lottie/details/lottie_cache_frame_storage.h
         lottie/details/lottie_frame_provider_cached.cpp
         lottie/details/lottie_frame_provider_cached.h
+        lottie/details/lottie_frame_provider_cached_multi.cpp
+        lottie/details/lottie_frame_provider_cached_multi.h
     )
     target_compile_definitions(lib_lottie PUBLIC LOTTIE_USE_CACHE)
     target_link_libraries(lib_lottie

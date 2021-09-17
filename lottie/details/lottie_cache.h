@@ -27,6 +27,9 @@ public:
 		const QByteArray &data,
 		const FrameRequest &request,
 		FnMut<void(QByteArray &&cached)> put);
+	Cache(Cache &&);
+	Cache &operator=(Cache&&);
+	~Cache();
 
 	void init(
 		QSize original,
@@ -48,8 +51,6 @@ public:
 		const QImage &frame,
 		const FrameRequest &request,
 		int index);
-
-	~Cache();
 
 private:
 	struct ReadResult {

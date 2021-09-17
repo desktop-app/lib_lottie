@@ -41,6 +41,15 @@ public:
 		Quality quality = Quality::Default,
 		const ColorReplacements *replacements = nullptr,
 		std::shared_ptr<FrameRenderer> renderer = nullptr);
+	SinglePlayer( // Multi-cache version.
+		int keysCount,
+		FnMut<void(int, FnMut<void(QByteArray &&)>)> get,
+		FnMut<void(int, QByteArray &&)> put,
+		const QByteArray &content,
+		const FrameRequest &request,
+		Quality quality = Quality::Default,
+		const ColorReplacements *replacements = nullptr,
+		std::shared_ptr<FrameRenderer> renderer = nullptr);
 	~SinglePlayer();
 
 	void start(

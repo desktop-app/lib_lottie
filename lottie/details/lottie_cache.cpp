@@ -34,6 +34,14 @@ Cache::Cache(
 	}
 }
 
+Cache::Cache(Cache &&) = default;
+
+Cache &Cache::operator=(Cache&&) = default;
+
+Cache::~Cache() {
+	finalizeEncoding();
+}
+
 void Cache::init(
 		QSize original,
 		int frameRate,
@@ -191,7 +199,7 @@ void Cache::appendFrame(
 }
 
 void Cache::finalizeEncoding() {
-	if (_encode.compressedFrames.empty()) {
+	if (_encode.compressedFrames.empty() || !_put) {
 		return;
 	}
 	const auto size = (_data.isEmpty() ? headerSize() : _data.size())
@@ -274,10 +282,6 @@ Cache::ReadResult Cache::readCompressedFrame() {
 		? UncompressToRaw(_uncompressed, bytes.subspan(0, length))
 		: false;
 	return { ok, xored };
-}
-
-Cache::~Cache() {
-	finalizeEncoding();
 }
 
 } // namespace Lottie

@@ -56,6 +56,15 @@ public:
 		const FrameRequest &request,
 		Quality quality,
 		const ColorReplacements *replacements = nullptr);
+	Animation( // Multi-cache version.
+		not_null<Player*> player,
+		int keysCount,
+		FnMut<void(int, FnMut<void(QByteArray &&)>)> get,
+		FnMut<void(int, QByteArray &&)> put, // Unknown thread.
+		const QByteArray &content,
+		const FrameRequest &request,
+		Quality quality,
+		const ColorReplacements *replacements = nullptr);
 
 	[[nodiscard]] bool ready() const;
 	[[nodiscard]] QImage frame() const;

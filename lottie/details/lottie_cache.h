@@ -8,6 +8,7 @@
 
 #include "ffmpeg/ffmpeg_utility.h"
 #include "lottie/details/lottie_cache_frame_storage.h"
+#include "lottie/lottie_common.h"
 
 #include <QImage>
 #include <QSize>
@@ -16,6 +17,18 @@
 namespace Lottie {
 
 struct FrameRequest;
+
+struct CacheReadContext {
+	EncodedStorage uncompressed;
+	EncodedStorage previous;
+	FFmpeg::SwscalePointer decodeContext;
+	int offset = 0;
+	int offsetFrameIndex = 0;
+
+	[[nodiscard]] bool ready() const {
+		return (offset != 0);
+	}
+};
 
 class Cache {
 public:
@@ -43,10 +56,18 @@ public:
 	[[nodiscard]] QSize originalSize() const;
 	[[nodiscard]] QImage takeFirstFrame();
 
-	[[nodiscard]] bool renderFrame(
+	void prepareBuffers(CacheReadContext &context) const;
+	void keepUpContext(CacheReadContext &context) const;
+
+	[[nodiscard]] FrameRenderResult renderFrame(
 		QImage &to,
 		const FrameRequest &request,
 		int index);
+	[[nodiscard]] FrameRenderResult renderFrame(
+		CacheReadContext &context,
+		QImage &to,
+		const FrameRequest &request,
+		int index) const;
 	void appendFrame(
 		const QImage &frame,
 		const FrameRequest &request,
@@ -72,21 +93,19 @@ private:
 	void writeHeader();
 	void updateFramesReadyCount();
 	[[nodiscard]] bool readHeader(const FrameRequest &request);
-	[[nodiscard]] ReadResult readCompressedFrame();
+	[[nodiscard]] ReadResult readCompressedFrame(
+		CacheReadContext &context) const;
 
 	QByteArray _data;
 	EncodeFields _encode;
 	QSize _size;
 	QSize _original;
-	EncodedStorage _uncompressed;
-	EncodedStorage _previous;
-	FFmpeg::SwscalePointer _decodeContext;
+	CacheReadContext _readContext;
 	QImage _firstFrame;
 	int _frameRate = 0;
 	int _framesCount = 0;
 	int _framesReady = 0;
-	int _offset = 0;
-	int _offsetFrameIndex = 0;
+	int _framesInData = 0;
 	Encoder _encoder = Encoder::YUV420A4_LZ4;
 	FnMut<void(QByteArray &&cached)> _put;
 

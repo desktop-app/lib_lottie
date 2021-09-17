@@ -7,26 +7,18 @@
 #pragma once
 
 #include "lottie/details/lottie_frame_provider.h"
-#include "lottie/lottie_common.h"
+#include "base/weak_ptr.h"
 
-namespace rlottie {
-class Animation;
-} // namespace rlottie
+#include <QtCore/QReadWriteLock>
 
 namespace Lottie {
 
-class FrameProviderDirect final : public FrameProvider {
+class FrameProviderShared final
+	: public FrameProvider
+	, public base::has_weak_ptr {
 public:
-	explicit FrameProviderDirect(Quality quality);
-	~FrameProviderDirect();
-
-	bool load(
-		const QByteArray &content,
-		const ColorReplacements *replacements);
-	[[nodiscard]] bool loaded() const;
-	void unload();
-
-	bool setInformation(Information information);
+	explicit FrameProviderShared(
+		FnMut<void(FnMut<void(std::unique_ptr<FrameProvider>)>)> factory);
 
 	QImage construct(
 		const std::unique_ptr<FrameProviderToken> &token,
@@ -36,21 +28,21 @@ public:
 
 	int sizeRounding() override;
 
+	bool requiresTokens() override {
+		return true;
+	}
+	std::unique_ptr<FrameProviderToken> createToken() override;
+
 	bool render(
 		const std::unique_ptr<FrameProviderToken> &token,
 		QImage &to,
 		const FrameRequest &request,
 		int index) override;
-	void renderToPrepared(QImage &to, int index) const;
 
 private:
-	const FrameProviderDirect *cthis() const {
-		return this;
-	}
-
-	std::unique_ptr<rlottie::Animation> _animation;
-	Information _information;
-	Quality _quality = Quality::Default;
+	std::unique_ptr<FrameProvider> _shared;
+	QReadWriteLock _mutex;
+	bool _constructed = false;
 
 };
 

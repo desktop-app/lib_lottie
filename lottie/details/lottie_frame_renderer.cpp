@@ -189,9 +189,10 @@ void FrameRendererObject::queueGenerateFrames() {
 SharedState::SharedState(
 	std::shared_ptr<FrameProvider> provider,
 	const FrameRequest &request)
-: _provider(std::move(provider)) {
+: _provider(std::move(provider))
+, _token(_provider->requiresTokens() ? _provider->createToken() : nullptr) {
 	if (_provider->valid()) {
-		init(_provider->construct(request), request);
+		init(_provider->construct(_token, request), request);
 	}
 }
 
@@ -205,6 +206,7 @@ void SharedState::init(QImage cover, const FrameRequest &request) {
 	_frames[0].request = request;
 	_frames[0].sizeRounding = sizeRounding();
 	_frames[0].original = std::move(cover);
+	_framesCount = _provider->information().framesCount;
 }
 
 void SharedState::start(
@@ -226,10 +228,17 @@ bool IsRendered(not_null<const Frame*> frame) {
 void SharedState::renderNextFrame(
 		not_null<Frame*> frame,
 		const FrameRequest &request) {
-	_provider->render(
+	if (!_framesCount) {
+		return;
+	}
+	const auto rendered = _provider->render(
+		_token,
 		frame->original,
 		request,
-		(++_frameIndex) % _provider->information().framesCount);
+		(++_frameIndex) % _framesCount);
+	if (!rendered) {
+		return;
+	}
 	frame->request = request;
 	frame->sizeRounding = sizeRounding();
 	PrepareFrameByRequest(frame);
@@ -244,10 +253,10 @@ auto SharedState::renderNextFrame(const FrameRequest &request)
 		const auto next = getFrame((index + 1) % kFramesCount);
 		if (!IsRendered(frame)) {
 			renderNextFrame(frame, request);
-			return { true };
+			return { IsRendered(frame) };
 		} else if (!IsRendered(next)) {
 			renderNextFrame(next, request);
-			return { true };
+			return { IsRendered(next) };
 		}
 		return { false };
 	};
@@ -255,6 +264,9 @@ auto SharedState::renderNextFrame(const FrameRequest &request)
 		const auto frame = getFrame(index);
 		if (!IsRendered(frame)) {
 			renderNextFrame(frame, request);
+			if (!IsRendered(frame)) {
+				return { false };
+			}
 		}
 		frame->display = countFrameDisplayTime(frame->index);
 
@@ -318,7 +330,7 @@ not_null<Frame*> SharedState::frameForPaint() {
 }
 
 int SharedState::framesCount() const {
-	return _provider->information().framesCount;
+	return _framesCount;
 }
 
 crl::time SharedState::nextFrameDisplayTime() const {

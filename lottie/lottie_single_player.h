@@ -15,6 +15,7 @@
 namespace Lottie {
 
 class FrameRenderer;
+class FrameProvider;
 
 struct DisplayFrameRequest {
 };
@@ -51,6 +52,19 @@ public:
 		const ColorReplacements *replacements = nullptr,
 		std::shared_ptr<FrameRenderer> renderer = nullptr);
 	~SinglePlayer();
+
+	[[nodiscard]] static std::shared_ptr<FrameProvider> SharedProvider(
+		int keysCount,
+		FnMut<void(int, FnMut<void(QByteArray &&)>)> get,
+		FnMut<void(int, QByteArray &&)> put,
+		const QByteArray &content,
+		const FrameRequest &request,
+		Quality quality = Quality::Default,
+		const ColorReplacements *replacements = nullptr);
+	explicit SinglePlayer(
+		std::shared_ptr<FrameProvider> provider,
+		const FrameRequest &request,
+		std::shared_ptr<FrameRenderer> renderer = nullptr);
 
 	void start(
 		not_null<Animation*> animation,

@@ -113,31 +113,42 @@ bool FrameProviderCachedMulti::validateFramesPerCache() {
 }
 
 QImage FrameProviderCachedMulti::construct(
+		const std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) {
 	if (!_framesPerCache) {
+		if (token) {
+			token->result = FrameRenderResult::Failed;
+		}
 		return QImage();
 	}
 	auto cover = QImage();
-	const auto &info = information();
-	const auto count = int(_caches.size());
-	for (auto i = 0; i != count; ++i) {
-		auto cacheCover = _caches[i].takeFirstFrame();
-		if (cacheCover.isNull()) {
-			_caches[i].init(
-				info.size,
-				info.frameRate,
-				(i + 1 == count
-					? (info.framesCount - (count - 1) * _framesPerCache)
-					: _framesPerCache),
-				request);
-		} else if (!i) {
-			cover = std::move(cacheCover);
+	using Token = FrameProviderCachedMultiToken;
+	const auto my = static_cast<Token*>(token.get());
+	if (!my || my->exclusive) {
+		const auto &info = information();
+		const auto count = int(_caches.size());
+		for (auto i = 0; i != count; ++i) {
+			auto cacheCover = _caches[i].takeFirstFrame();
+			if (cacheCover.isNull()) {
+				_caches[i].init(
+					info.size,
+					info.frameRate,
+					(i + 1 == count
+						? (info.framesCount - (count - 1) * _framesPerCache)
+						: _framesPerCache),
+					request);
+			} else if (!i) {
+				cover = std::move(cacheCover);
+			}
+		}
+		if (!cover.isNull()) {
+			if (my) {
+				_caches[0].keepUpContext(my->context);
+			}
+			return cover;
 		}
 	}
-	if (!cover.isNull()) {
-		return cover;
-	}
-	render(cover, request, 0);
+	render(token, cover, request, 0);
 	return cover;
 }
 
@@ -153,12 +164,24 @@ int FrameProviderCachedMulti::sizeRounding() {
 	return _caches.front().sizeRounding();
 }
 
-void FrameProviderCachedMulti::render(
+std::unique_ptr<FrameProviderToken> FrameProviderCachedMulti::createToken() {
+	auto result = std::make_unique<FrameProviderCachedMultiToken>();
+	if (!_caches.empty()) {
+		_caches.front().prepareBuffers(result->context);
+	}
+	return result;
+}
+
+bool FrameProviderCachedMulti::render(
+		const std::unique_ptr<FrameProviderToken> &token,
 		QImage &to,
 		const FrameRequest &request,
 		int index) {
 	if (!valid()) {
-		return;
+		if (token) {
+			token->result = FrameRenderResult::Failed;
+		}
+		return false;
 	}
 
 	const auto original = information().size;
@@ -172,12 +195,29 @@ void FrameProviderCachedMulti::render(
 	const auto indexInCache = index % _framesPerCache;
 	Assert(cacheIndex < _caches.size());
 	auto &cache = _caches[cacheIndex];
-	if (cache.renderFrame(to, request, indexInCache)) {
-		return;
-	} else if (!_direct.loaded()
-		&& !_direct.load(_content, _replacements)) {
+	using Token = FrameProviderCachedMultiToken;
+	const auto my = static_cast<Token*>(token.get());
+	if (my && !my->exclusive) {
+		// Many threads may get here simultaneously.
+		my->result = cache.renderFrame(
+			my->context,
+			to,
+			request,
+			indexInCache);
+		return (my->result == FrameRenderResult::Ok);
+	}
+	const auto result = cache.renderFrame(to, request, indexInCache);
+	if (result == FrameRenderResult::Ok) {
+		if (my) {
+			cache.keepUpContext(my->context);
+		}
+		return true;
+	} else if (result == FrameRenderResult::Failed
+		// We don't support changing size on the fly for shared providers.
+		|| (result == FrameRenderResult::BadCacheSize && my)
+		|| (!_direct.loaded() && !_direct.load(_content, _replacements))) {
 		_direct.setInformation({});
-		return;
+		return false;
 	}
 	_direct.renderToPrepared(to, index);
 	cache.appendFrame(to, request, indexInCache);
@@ -185,6 +225,10 @@ void FrameProviderCachedMulti::render(
 		&& cacheIndex + 1 == _caches.size()) {
 		_direct.unload();
 	}
+	if (my) {
+		cache.keepUpContext(my->context);
+	}
+	return true;
 }
 
 } // namespace Lottie

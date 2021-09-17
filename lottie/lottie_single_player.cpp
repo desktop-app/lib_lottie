@@ -7,6 +7,11 @@
 #include "lottie/lottie_single_player.h"
 
 #include "lottie/details/lottie_frame_renderer.h"
+#include "lottie/details/lottie_frame_provider_shared.h"
+#include "lottie/details/lottie_frame_provider_direct.h"
+#include "lottie/details/lottie_frame_provider_cached_multi.h"
+
+#include <crl/crl_async.h>
 
 namespace Lottie {
 
@@ -67,6 +72,75 @@ SinglePlayer::~SinglePlayer() {
 	if (_state) {
 		_renderer->remove(_state);
 	}
+}
+
+std::shared_ptr<FrameProvider> SinglePlayer::SharedProvider(
+		int keysCount,
+		FnMut<void(int, FnMut<void(QByteArray &&)>)> get,
+		FnMut<void(int, QByteArray &&)> put,
+		const QByteArray &content,
+		const FrameRequest &request,
+		Quality quality,
+		const ColorReplacements *replacements) {
+	auto factory = [=, get = std::move(get), put = std::move(put)](
+			FnMut<void(std::unique_ptr<FrameProvider>)> done) mutable {
+#ifdef LOTTIE_USE_CACHE
+		struct State {
+			std::atomic<int> left = 0;
+			std::vector<QByteArray> caches;
+			FnMut<void(int, QByteArray &&cached)> put;
+			FnMut<void(std::unique_ptr<FrameProvider>)> done;
+		};
+		const auto state = std::make_shared<State>();
+		state->left = keysCount;
+		state->put = std::move(put);
+		state->done = std::move(done);
+		state->caches.resize(keysCount);
+		for (auto i = 0; i != keysCount; ++i) {
+			get(i, [=](QByteArray &&cached) {
+				state->caches[i] = std::move(cached);
+				if (--state->left) {
+					return;
+				}
+				crl::async([=, done = std::move(state->done)]() mutable {
+					if (const auto error = ContentError(content)) {
+						done(nullptr);
+						return;
+					}
+					auto provider = std::make_unique<FrameProviderCachedMulti>(
+						content,
+						std::move(state->put),
+						std::move(state->caches),
+						request,
+						quality,
+						replacements);
+					done(provider->valid() ? std::move(provider) : nullptr);
+				});
+			});
+		}
+#else // LOTTIE_USE_CACHE
+		crl::async([=, done = std::move(done)]() mutable {
+			if (const auto error = ContentError(content)) {
+				done(nullptr);
+				return;
+			}
+			auto provider = std::make_unique<FrameProviderDirect>(quality);
+			done(provider->load(content, replacements)
+				? std::move(provider)
+				: nullptr);
+		});
+#endif // LOTTIE_USE_CACHE
+	};
+	return std::make_shared<FrameProviderShared>(std::move(factory));
+}
+
+SinglePlayer::SinglePlayer(
+	std::shared_ptr<FrameProvider> provider,
+	const FrameRequest &request,
+	std::shared_ptr<FrameRenderer> renderer)
+: _timer([=] { checkNextFrameRender(); })
+, _renderer(renderer ? renderer : FrameRenderer::Instance())
+, _animation(this, std::move(provider), request) {
 }
 
 void SinglePlayer::start(

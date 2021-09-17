@@ -34,18 +34,26 @@ FrameProviderCached::FrameProviderCached(
 }
 
 QImage FrameProviderCached::construct(
+		const std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) {
 	auto cover = _cache.takeFirstFrame();
-	if (!cover.isNull()) {
-		return cover;
+	using Token = FrameProviderCachedToken;
+	const auto my = static_cast<Token*>(token.get());
+	if (!my || my->exclusive) {
+		if (!cover.isNull()) {
+			if (my) {
+				_cache.keepUpContext(my->context);
+			}
+			return cover;
+		}
+		const auto &info = information();
+		_cache.init(
+			info.size,
+			info.frameRate,
+			info.framesCount,
+			request);
 	}
-	const auto &info = information();
-	_cache.init(
-		info.size,
-		info.frameRate,
-		info.framesCount,
-		request);
-	render(cover, request, 0);
+	render(token, cover, request, 0);
 	return cover;
 }
 
@@ -61,12 +69,22 @@ int FrameProviderCached::sizeRounding() {
 	return _cache.sizeRounding();
 }
 
-void FrameProviderCached::render(
+std::unique_ptr<FrameProviderToken> FrameProviderCached::createToken() {
+	auto result = std::make_unique<FrameProviderCachedToken>();
+	_cache.prepareBuffers(result->context);
+	return result;
+}
+
+bool FrameProviderCached::render(
+		const std::unique_ptr<FrameProviderToken> &token,
 		QImage &to,
 		const FrameRequest &request,
 		int index) {
 	if (!valid()) {
-		return;
+		if (token) {
+			token->result = FrameRenderResult::Failed;
+		}
+		return false;
 	}
 
 	const auto original = information().size;
@@ -76,18 +94,35 @@ void FrameProviderCached::render(
 	if (!GoodStorageForFrame(to, size)) {
 		to = CreateFrameStorage(size);
 	}
-	if (_cache.renderFrame(to, request, index)) {
-		return;
-	} else if (!_direct.loaded()
-		&& !_direct.load(_content, _replacements)) {
+	using Token = FrameProviderCachedToken;
+	const auto my = static_cast<Token*>(token.get());
+	if (my && !my->exclusive) {
+		// This must be a thread-safe request.
+		my->result = _cache.renderFrame(my->context, to, request, index);
+		return (my->result == FrameRenderResult::Ok);
+	}
+	const auto result = _cache.renderFrame(to, request, index);
+	if (result == FrameRenderResult::Ok) {
+		if (my) {
+			_cache.keepUpContext(my->context);
+		}
+		return true;
+	} else if (result == FrameRenderResult::Failed
+		// We don't support changing size on the fly for shared providers.
+		|| (result == FrameRenderResult::BadCacheSize && my)
+		|| (!_direct.loaded() && !_direct.load(_content, _replacements))) {
 		_direct.setInformation({});
-		return;
+		return false;
 	}
 	_direct.renderToPrepared(to, index);
 	_cache.appendFrame(to, request, index);
 	if (_cache.framesReady() == _cache.framesCount()) {
 		_direct.unload();
 	}
+	if (my) {
+		_cache.keepUpContext(my->context);
+	}
+	return true;
 }
 
 } // namespace Lottie

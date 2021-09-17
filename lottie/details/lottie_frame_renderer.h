@@ -29,6 +29,7 @@ inline constexpr auto kDisplayedInitial = crl::time(-1);
 
 class Player;
 class FrameProvider;
+class FrameProviderToken;
 
 struct Frame {
 	QImage original;
@@ -102,8 +103,10 @@ private:
 	crl::time _delay = kTimeUnknown;
 
 	int _frameIndex = 0;
+	int _framesCount = 0;
 	int _skippedFrames = 0;
 	const std::shared_ptr<FrameProvider> _provider;
+	const std::unique_ptr<FrameProviderToken> _token;
 
 };
 

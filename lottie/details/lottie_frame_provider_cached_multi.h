@@ -11,6 +11,10 @@
 
 namespace Lottie {
 
+struct FrameProviderCachedMultiToken : FrameProviderToken {
+	CacheReadContext context;
+};
+
 class FrameProviderCachedMulti final : public FrameProvider {
 public:
 	FrameProviderCachedMulti(
@@ -25,13 +29,18 @@ public:
 	FrameProviderCachedMulti &operator=(const FrameProviderCachedMulti &)
 		= delete;
 
-	QImage construct(const FrameRequest &request) override;
+	QImage construct(
+		const std::unique_ptr<FrameProviderToken> &token,
+		const FrameRequest &request) override;
 	const Information &information() override;
 	bool valid() override;
 
 	int sizeRounding() override;
 
-	void render(
+	std::unique_ptr<FrameProviderToken> createToken() override;
+
+	bool render(
+		const std::unique_ptr<FrameProviderToken> &token,
 		QImage &to,
 		const FrameRequest &request,
 		int index) override;

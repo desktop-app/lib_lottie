@@ -110,9 +110,10 @@ bool FrameProviderDirect::valid() {
 }
 
 QImage FrameProviderDirect::construct(
+		const std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) {
 	auto cover = QImage();
-	render(cover, request, 0);
+	render(token, cover, request, 0);
 	return cover;
 }
 
@@ -120,12 +121,16 @@ int FrameProviderDirect::sizeRounding() {
 	return 2;
 }
 
-void FrameProviderDirect::render(
+bool FrameProviderDirect::render(
+		const std::unique_ptr<FrameProviderToken> &token,
 		QImage &to,
 		const FrameRequest &request,
 		int index) {
-	if (!valid()) {
-		return;
+	if (token && !token->exclusive) {
+		token->result = FrameRenderResult::NotReady;
+		return false;
+	} else if (!valid()) {
+		return false;
 	}
 	const auto original = information().size;
 	const auto size = request.box.isEmpty()
@@ -135,11 +140,12 @@ void FrameProviderDirect::render(
 		to = CreateFrameStorage(size);
 	}
 	renderToPrepared(to, index);
+	return true;
 }
 
 void FrameProviderDirect::renderToPrepared(
 		QImage &to,
-		int index) {
+		int index) const {
 	to.fill(Qt::transparent);
 	auto surface = rlottie::Surface(
 		reinterpret_cast<uint32_t*>(to.bits()),

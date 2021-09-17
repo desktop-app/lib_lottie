@@ -24,6 +24,7 @@ namespace Lottie {
 class Player;
 class SharedState;
 class FrameRenderer;
+class FrameProvider;
 
 std::shared_ptr<FrameRenderer> MakeFrameRenderer();
 
@@ -65,6 +66,10 @@ public:
 		const FrameRequest &request,
 		Quality quality,
 		const ColorReplacements *replacements = nullptr);
+	Animation( // Thread-safe version.
+		not_null<Player*> player,
+		std::shared_ptr<FrameProvider> provider,
+		const FrameRequest &request);
 
 	[[nodiscard]] bool ready() const;
 	[[nodiscard]] QImage frame() const;
@@ -81,5 +86,7 @@ private:
 	SharedState *_state = nullptr;
 
 };
+
+[[nodiscard]] std::optional<Error> ContentError(const QByteArray &content);
 
 } // namespace Lottie

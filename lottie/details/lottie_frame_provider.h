@@ -10,15 +10,36 @@
 
 namespace Lottie {
 
+struct FrameProviderToken {
+	virtual ~FrameProviderToken() = default;
+
+	FrameRenderResult result = FrameRenderResult::Ok;
+	bool exclusive = false;
+};
+
 class FrameProvider {
 public:
-	virtual QImage construct(const FrameRequest &request) = 0;
+	virtual ~FrameProvider() = default;
+
+	virtual QImage construct(
+		const std::unique_ptr<FrameProviderToken> &token,
+		const FrameRequest &request) = 0;
 	[[nodiscard]] virtual const Information &information() = 0;
 	[[nodiscard]] virtual bool valid() = 0;
 
 	[[nodiscard]] virtual int sizeRounding() = 0;
 
-	virtual void render(
+	[[nodiscard]] virtual bool requiresTokens() {
+		// Used for shared frame provider.
+		return false;
+	}
+	[[nodiscard]] virtual std::unique_ptr<FrameProviderToken> createToken() {
+		// Used for shared frame provider.
+		return nullptr;
+	}
+
+	virtual bool render(
+		const std::unique_ptr<FrameProviderToken> &token,
 		QImage &to,
 		const FrameRequest &request,
 		int index) = 0;

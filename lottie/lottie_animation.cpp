@@ -29,13 +29,6 @@ namespace {
 
 const auto kIdealSize = QSize(512, 512);
 
-std::optional<Error> ContentError(const QByteArray &content) {
-	if (content.size() > kMaxFileSize) {
-		return Error::ParseFailed;
-	}
-	return std::nullopt;
-}
-
 details::InitData CheckSharedState(std::unique_ptr<SharedState> state) {
 	Expects(state != nullptr);
 
@@ -118,6 +111,18 @@ details::InitData Init(
 		: Error::ParseFailed;
 }
 #endif // LOTTIE_USE_CACHE
+
+details::InitData Init(
+		std::shared_ptr<FrameProvider> provider,
+		const FrameRequest &request) {
+	Expects(!request.empty());
+
+	return provider->valid()
+		? CheckSharedState(std::make_unique<SharedState>(
+			std::move(provider),
+			request.empty() ? FrameRequest{ kIdealSize } : request))
+		: Error::ParseFailed;
+}
 
 } // namespace
 
@@ -230,6 +235,20 @@ Animation::Animation(
 #endif // LOTTIE_USE_CACHE
 }
 
+Animation::Animation(
+	not_null<Player*> player,
+	std::shared_ptr<FrameProvider> provider,
+	const FrameRequest &request)
+: _player(player) {
+	const auto weak = base::make_weak(this);
+	crl::async([=, provider = std::move(provider)]() mutable {
+		auto result = Init(std::move(provider), request);
+		crl::on_main(weak, [=, data = std::move(result)]() mutable {
+			initDone(std::move(data));
+		});
+	});
+}
+
 bool Animation::ready() const {
 	return (_state != nullptr);
 }
@@ -290,6 +309,13 @@ Information Animation::information() const {
 	Expects(_state != nullptr);
 
 	return _state->information();
+}
+
+std::optional<Error> ContentError(const QByteArray &content) {
+	if (content.size() > kMaxFileSize) {
+		return Error::ParseFailed;
+	}
+	return std::nullopt;
 }
 
 } // namespace Lottie

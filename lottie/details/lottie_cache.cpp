@@ -30,6 +30,7 @@ Cache::Cache(
 , _put(std::move(put)) {
 	if (!readHeader(request)) {
 		_framesReady = 0;
+		_framesInData = 0;
 		_data = QByteArray();
 	}
 }
@@ -52,6 +53,7 @@ void Cache::init(
 	_frameRate = frameRate;
 	_framesCount = framesCount;
 	_framesReady = 0;
+	_framesInData = 0;
 	prepareBuffers();
 }
 
@@ -78,7 +80,6 @@ QSize Cache::originalSize() const {
 bool Cache::readHeader(const FrameRequest &request) {
 	if (_data.isEmpty()) {
 		return false;
-
 	}
 	QDataStream stream(&_data, QIODevice::ReadOnly);
 
@@ -117,45 +118,61 @@ bool Cache::readHeader(const FrameRequest &request) {
 	_frameRate = frameRate;
 	_framesCount = framesCount;
 	_framesReady = framesReady;
+	_framesInData = framesReady;
 	prepareBuffers();
-	return renderFrame(_firstFrame, request, 0);
+	return (renderFrame(_firstFrame, request, 0) == FrameRenderResult::Ok);
 }
 
 QImage Cache::takeFirstFrame() {
 	return std::move(_firstFrame);
 }
 
-bool Cache::renderFrame(
+FrameRenderResult Cache::renderFrame(
 		QImage &to,
 		const FrameRequest &request,
 		int index) {
+	const auto result = renderFrame(_readContext, to, request, index);
+	if (result == FrameRenderResult::Ok) {
+		if (index + 1 == _framesReady && _data.size() > _readContext.offset) {
+			_data.resize(_readContext.offset);
+		}
+	} else if (result == FrameRenderResult::BadCacheSize) {
+		_framesReady = 0;
+		_framesInData = 0;
+		_data.clear();
+	}
+	return result;
+}
+
+FrameRenderResult Cache::renderFrame(
+		CacheReadContext &context,
+		QImage &to,
+		const FrameRequest &request,
+		int index) const {
 	Expects(index >= _framesReady
-		|| index == _offsetFrameIndex
+		|| index == context.offsetFrameIndex
 		|| index == 0);
+	Expects(index >= _framesReady || context.ready());
 
 	if (index >= _framesReady) {
-		return false;
+		return FrameRenderResult::NotReady;
 	} else if (request.size(_original, sizeRounding()) != _size) {
-		return false;
+		return FrameRenderResult::BadCacheSize;
 	} else if (index == 0) {
-		_offset = headerSize();
-		_offsetFrameIndex = 0;
+		context.offsetFrameIndex = 0;
+		context.offset = headerSize();
 	}
-	const auto [ok, xored] = readCompressedFrame();
+	const auto [ok, xored] = readCompressedFrame(context);
 	if (!ok || (xored && index == 0)) {
-		_framesReady = 0;
-		_data = QByteArray();
-		return false;
-	} else if (index + 1 == _framesReady && _data.size() > _offset) {
-		_data.resize(_offset);
+		return FrameRenderResult::Failed;
 	}
 	if (xored) {
-		Xor(_previous, _uncompressed);
+		Xor(context.previous, context.uncompressed);
 	} else {
-		std::swap(_uncompressed, _previous);
+		std::swap(context.uncompressed, context.previous);
 	}
-	Decode(to, _previous, _size, _decodeContext);
-	return true;
+	Decode(to, context.previous, _size, context.decodeContext);
+	return FrameRenderResult::Ok;
 }
 
 void Cache::appendFrame(
@@ -164,24 +181,25 @@ void Cache::appendFrame(
 		int index) {
 	if (request.size(_original, sizeRounding()) != _size) {
 		_framesReady = 0;
+		_framesInData = 0;
 		_data = QByteArray();
 	}
 	if (index != _framesReady) {
 		return;
-	}
-	if (index == 0) {
+	} else if (index == 0) {
 		_size = request.size(_original, sizeRounding());
 		_encode = EncodeFields();
 		_encode.compressedFrames.reserve(_framesCount);
 		prepareBuffers();
 	}
 	Assert(frame.size() == _size);
-	Encode(_uncompressed, frame, _encode.cache, _encode.context);
+	Assert(_readContext.ready());
+	Encode(_readContext.uncompressed, frame, _encode.cache, _encode.context);
 	CompressAndSwapFrame(
 		_encode.compressBuffer,
 		(index != 0) ? &_encode.xorCompressBuffer : nullptr,
-		_uncompressed,
-		_previous);
+		_readContext.uncompressed,
+		_readContext.previous);
 	const auto compressed = _encode.compressBuffer;
 	const auto nowSize = (_data.isEmpty() ? headerSize() : _data.size())
 		+ _encode.totalSize;
@@ -193,6 +211,8 @@ void Cache::appendFrame(
 	_encode.totalSize += compressed.size();
 	_encode.compressedFrames.push_back(compressed);
 	_encode.compressedFrames.back().detach();
+	++_readContext.offsetFrameIndex;
+	_readContext.offset += compressed.size();
 	if (++_framesReady == _framesCount) {
 		finalizeEncoding();
 	}
@@ -218,6 +238,7 @@ void Cache::finalizeEncoding() {
 		memcpy(to, block.data(), amount);
 		to += amount;
 	}
+	_framesInData = _framesReady;
 	if (_data.size() <= kMaxCacheSize) {
 		_put(QByteArray(_data));
 	}
@@ -251,19 +272,62 @@ void Cache::updateFramesReadyCount() {
 }
 
 void Cache::prepareBuffers() {
-	// 12 bit per pixel in YUV420P.
-	const auto bytesPerLine = _size.width();
-
-	_uncompressed.allocate(bytesPerLine, _size.height());
-	_previous.allocate(bytesPerLine, _size.height());
+	prepareBuffers(_readContext);
 }
 
-Cache::ReadResult Cache::readCompressedFrame() {
-	if (_data.size() < _offset) {
-		return { false };
+void Cache::prepareBuffers(CacheReadContext &context) const {
+	if (_size.isEmpty()) {
+		return;
 	}
+
+	// 12 bit per pixel in YUV420P.
+	const auto bytesPerLine = _size.width();
+	context.offset = headerSize();
+	context.offsetFrameIndex = 0;
+	context.uncompressed.allocate(bytesPerLine, _size.height());
+	context.previous.allocate(bytesPerLine, _size.height());
+}
+
+void Cache::keepUpContext(CacheReadContext &context) const {
+	Expects(!context.ready()
+		|| context.previous.size() == _readContext.previous.size());
+	Expects(!context.ready()
+		|| context.uncompressed.size() == _readContext.uncompressed.size());
+	Expects(&context != &_readContext);
+
+	if (!context.ready()) {
+		prepareBuffers(context);
+	}
+	context.offset = _readContext.offset;
+	context.offsetFrameIndex = _readContext.offsetFrameIndex;
+	memcpy(
+		context.previous.data(),
+		_readContext.previous.data(),
+		_readContext.previous.size());
+	memcpy(
+		context.uncompressed.data(),
+		_readContext.uncompressed.data(),
+		_readContext.uncompressed.size());
+}
+
+Cache::ReadResult Cache::readCompressedFrame(
+		CacheReadContext &context) const {
+	Expects(context.ready());
+
 	auto length = qint32(0);
-	const auto part = bytes::make_span(_data).subspan(_offset);
+	const auto part = [&] {
+		if (context.offsetFrameIndex >= _framesInData) {
+			// One reader is still accumulating compressed frames,
+			// while second reader already started reading after the first.
+			const auto readyIndex = context.offsetFrameIndex - _framesInData;
+			Assert(readyIndex < _encode.compressedFrames.size());
+			return bytes::make_span(_encode.compressedFrames[readyIndex]);
+		} else if (_data.size() > context.offset) {
+			return bytes::make_span(_data).subspan(context.offset);
+		} else {
+			return bytes::const_span();
+		}
+	}();
 	if (part.size() < sizeof(length)) {
 		return { false };
 	}
@@ -276,11 +340,13 @@ Cache::ReadResult Cache::readCompressedFrame() {
 	if (xored) {
 		length = -length;
 	}
-	_offset += sizeof(length) + length;
-	++_offsetFrameIndex;
 	const auto ok = (length <= bytes.size())
-		? UncompressToRaw(_uncompressed, bytes.subspan(0, length))
+		? UncompressToRaw(context.uncompressed, bytes.subspan(0, length))
 		: false;
+	if (ok) {
+		context.offset += sizeof(length) + length;
+		++context.offsetFrameIndex;
+	}
 	return { ok, xored };
 }
 

@@ -75,4 +75,11 @@ struct ColorReplacements {
 [[nodiscard]] bool GoodStorageForFrame(const QImage &storage, QSize size);
 [[nodiscard]] QImage CreateFrameStorage(QSize size);
 
+enum class FrameRenderResult {
+	Ok,
+	NotReady,
+	BadCacheSize,
+	Failed,
+};
+
 } // namespace Lottie

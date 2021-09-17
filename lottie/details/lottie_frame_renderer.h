@@ -16,10 +16,6 @@
 #include <crl/crl_object_on_queue.h>
 #include <limits>
 
-namespace rlottie {
-class Animation;
-} // namespace rlottie
-
 namespace Lottie {
 
 // Frame rate can be 1, 2, ... , 29, 30 or 60.
@@ -32,14 +28,14 @@ inline constexpr auto kFrameDisplayTimeAlreadyDone
 inline constexpr auto kDisplayedInitial = crl::time(-1);
 
 class Player;
-class Cache;
+class FrameProvider;
 
 struct Frame {
 	QImage original;
 	crl::time displayed = kDisplayedInitial;
 	crl::time display = kTimeUnknown;
 	int index = 0;
-	bool useCache = false;
+	int sizeRounding = 0;
 
 	FrameRequest request;
 	QImage prepared;
@@ -52,19 +48,8 @@ QImage PrepareFrameByRequest(
 class SharedState {
 public:
 	SharedState(
-		std::unique_ptr<rlottie::Animation> animation,
-		const FrameRequest &request,
-		Quality quality);
-
-#ifdef LOTTIE_USE_CACHE
-	SharedState(
-		const QByteArray &content,
-		const ColorReplacements *replacements,
-		std::unique_ptr<rlottie::Animation> animation,
-		std::unique_ptr<Cache> cache,
-		const FrameRequest &request,
-		Quality quality);
-#endif // LOTTIE_USE_CACHE
+		std::shared_ptr<FrameProvider> provider,
+		const FrameRequest &request);
 
 	void start(
 		not_null<Player*> owner,
@@ -82,8 +67,6 @@ public:
 	void markFrameDisplayed(crl::time now);
 	bool markFrameShown();
 
-	void renderFrame(QImage &image, const FrameRequest &request, int index);
-
 	struct RenderResult {
 		bool rendered = false;
 		base::weak_ptr<Player> notify;
@@ -93,19 +76,11 @@ public:
 	~SharedState();
 
 private:
-	static Information CalculateInformation(
-		Quality quality,
-		rlottie::Animation *animation,
-		Cache *cache);
-
-	void construct(const FrameRequest &request);
-	bool isValid() const;
 	void init(QImage cover, const FrameRequest &request);
 	void renderNextFrame(
 		not_null<Frame*> frame,
 		const FrameRequest &request);
-	bool renderFromCache(QImage &to, const FrameRequest &request, int index);
-	[[nodiscard]] bool useCache() const;
+	[[nodiscard]] int sizeRounding() const;
 	[[nodiscard]] crl::time countFrameDisplayTime(int index) const;
 	[[nodiscard]] not_null<Frame*> getFrame(int index);
 	[[nodiscard]] not_null<const Frame*> getFrame(int index) const;
@@ -128,16 +103,7 @@ private:
 
 	int _frameIndex = 0;
 	int _skippedFrames = 0;
-	const Information _info;
-	const Quality _quality = Quality::Default;
-
-#ifdef LOTTIE_USE_CACHE
-	const std::unique_ptr<Cache> _cache;
-#endif // LOTTIE_USE_CACHE
-
-	std::unique_ptr<rlottie::Animation> _animation;
-	const QByteArray _content;
-	const ColorReplacements *_replacements = nullptr;
+	const std::shared_ptr<FrameProvider> _provider;
 
 };
 

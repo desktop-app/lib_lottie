@@ -25,9 +25,9 @@ constexpr auto kImageFormat = QImage::Format_ARGB32_Premultiplied;
 class Animation;
 
 struct Information {
+	QSize size;
 	int frameRate = 0;
 	int framesCount = 0;
-	QSize size;
 };
 
 enum class Error {
@@ -43,7 +43,9 @@ struct FrameRequest {
 	[[nodiscard]] bool empty() const {
 		return box.isEmpty();
 	}
-	[[nodiscard]] QSize size(const QSize &original, bool useCache) const;
+	[[nodiscard]] QSize size(
+		const QSize &original,
+		int sizeRounding) const;
 
 	[[nodiscard]] bool operator==(const FrameRequest &other) const {
 		return (box == other.box)

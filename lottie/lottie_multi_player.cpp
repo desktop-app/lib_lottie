@@ -6,7 +6,7 @@
 //
 #include "lottie/lottie_multi_player.h"
 
-#include "lottie/lottie_frame_renderer.h"
+#include "lottie/details/lottie_frame_renderer.h"
 #include "lottie/lottie_animation.h"
 
 #include <range/v3/algorithm/remove.hpp>

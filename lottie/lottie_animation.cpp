@@ -6,7 +6,8 @@
 //
 #include "lottie/lottie_animation.h"
 
-#include "lottie/lottie_frame_renderer.h"
+#include "lottie/details/lottie_frame_renderer.h"
+#include "lottie/details/lottie_frame_provider_direct.h"
 #include "lottie/lottie_player.h"
 #include "ui/image/image_prepare.h"
 #include "base/algorithm.h"
@@ -14,7 +15,7 @@
 #include "base/variant.h"
 
 #ifdef LOTTIE_USE_CACHE
-#include "lottie/lottie_cache.h"
+#include "lottie/details/lottie_frame_provider_cached.h"
 #endif // LOTTIE_USE_CACHE
 
 #include <QFile>
@@ -54,13 +55,13 @@ details::InitData Init(
 	if (const auto error = ContentError(content)) {
 		return *error;
 	}
-	auto animation = details::CreateFromContent(content, replacements);
-	return animation
-		? CheckSharedState(std::make_unique<SharedState>(
-			std::move(animation),
-			request.empty() ? FrameRequest{ kIdealSize } : request,
-			quality))
-		: Error::ParseFailed;
+	auto provider = std::make_shared<FrameProviderDirect>(quality);
+	if (!provider->load(content, replacements)) {
+		return Error::ParseFailed;
+	}
+	return CheckSharedState(std::make_unique<SharedState>(
+		std::move(provider),
+		request.empty() ? FrameRequest{ kIdealSize } : request));
 }
 
 #ifdef LOTTIE_USE_CACHE
@@ -76,56 +77,22 @@ details::InitData Init(
 	if (const auto error = ContentError(content)) {
 		return *error;
 	}
-	auto cache = std::make_unique<Cache>(cached, request, std::move(put));
-	const auto prepare = !cache->framesCount()
-		|| (cache->framesReady() < cache->framesCount());
-	auto animation = prepare
-		? details::CreateFromContent(content, replacements)
-		: nullptr;
-	return (!prepare || animation)
+	auto provider = std::make_shared<FrameProviderCached>(
+		content,
+		std::move(put),
+		cached,
+		request,
+		quality,
+		replacements);
+	return provider->valid()
 		? CheckSharedState(std::make_unique<SharedState>(
-			content,
-			replacements,
-			std::move(animation),
-			std::move(cache),
-			request,
-			quality))
+			std::move(provider),
+			request.empty() ? FrameRequest{ kIdealSize } : request))
 		: Error::ParseFailed;
 }
 #endif // LOTTIE_USE_CACHE
 
 } // namespace
-
-namespace details {
-
-std::unique_ptr<rlottie::Animation> CreateFromContent(
-		const QByteArray &content,
-		const ColorReplacements *replacements) {
-	const auto string = ReadUtf8(Images::UnpackGzip(content));
-	if (string.size() > kMaxFileSize) {
-		return nullptr;
-	}
-
-#ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
-	auto result = rlottie::Animation::loadFromData(
-		string,
-		std::string(),
-		std::string(),
-		false,
-		(replacements
-			? replacements->replacements
-			: std::vector<std::pair<std::uint32_t, std::uint32_t>>()));
-#else
-	auto result = rlottie::Animation::loadFromData(
-		string,
-		std::string(),
-		std::string(),
-		false);
-#endif
-	return result;
-}
-
-} // namespace details
 
 std::shared_ptr<FrameRenderer> MakeFrameRenderer() {
 	return FrameRenderer::CreateIndependent();

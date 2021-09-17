@@ -6,7 +6,7 @@
 //
 #include "lottie/lottie_single_player.h"
 
-#include "lottie/lottie_frame_renderer.h"
+#include "lottie/details/lottie_frame_renderer.h"
 
 namespace Lottie {
 

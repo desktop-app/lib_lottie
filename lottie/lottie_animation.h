@@ -33,10 +33,6 @@ namespace details {
 
 using InitData = std::variant<std::unique_ptr<SharedState>, Error>;
 
-std::unique_ptr<rlottie::Animation> CreateFromContent(
-	const QByteArray &content,
-	const ColorReplacements *replacements);
-
 } // namespace details
 
 class Animation final : public base::has_weak_ptr {

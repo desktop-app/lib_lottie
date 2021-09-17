@@ -4,16 +4,13 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#include "lottie/lottie_frame_renderer.h"
+#include "lottie/details/lottie_frame_renderer.h"
 
 #include "lottie/lottie_player.h"
 #include "lottie/lottie_animation.h"
+#include "lottie/details/lottie_frame_provider.h"
 #include "base/flat_map.h"
 #include "base/assertion.h"
-
-#ifdef LOTTIE_USE_CACHE
-#include "lottie/lottie_cache.h"
-#endif // LOTTIE_USE_CACHE
 
 #include <QPainter>
 #include <rlottie.h>
@@ -28,22 +25,6 @@ namespace Lottie {
 namespace {
 
 std::weak_ptr<FrameRenderer> GlobalInstance;
-
-int GetLottieFrameRate(not_null<rlottie::Animation*> animation, Quality quality) {
-	const auto rate = int(qRound(animation->frameRate()));
-	return (quality == Quality::Default && rate == 60) ? (rate / 2) : rate;
-}
-
-int GetLottieFramesCount(not_null<rlottie::Animation*> animation, Quality quality) {
-	const auto rate = int(qRound(animation->frameRate()));
-	const auto count = int(animation->totalFrame());
-	return (quality == Quality::Default && rate == 60) ? (count / 2) : count;
-}
-
-int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality, int index) {
-	const auto rate = int(qRound(animation->frameRate()));
-	return (quality == Quality::Default && rate == 60) ? (index * 2) : index;
-}
 
 } // namespace
 
@@ -96,11 +77,13 @@ private:
 [[nodiscard]] QImage PrepareByRequest(
 		const QImage &original,
 		const FrameRequest &request,
-		bool useCache,
+		int sizeRounding,
 		QImage storage) {
 	Expects(!request.box.isEmpty());
 
-	const auto size = request.size(original.size(), useCache);
+	const auto size = request.size(
+		original.size(),
+		sizeRounding);
 	if (!GoodStorageForFrame(storage, size)) {
 		storage = CreateFrameStorage(size);
 	}
@@ -132,7 +115,7 @@ QImage PrepareFrameByRequest(
 		frame->prepared = PrepareByRequest(
 			frame->original,
 			frame->request,
-			frame->useCache,
+			frame->sizeRounding,
 			std::move(frame->prepared));
 	}
 	return frame->prepared;
@@ -203,169 +186,24 @@ void FrameRendererObject::queueGenerateFrames() {
 	});
 }
 
-Information SharedState::CalculateInformation(
-		Quality quality,
-		rlottie::Animation *animation,
-		Cache *cache) {
-	Expects(animation != nullptr || cache != nullptr);
-
-#ifdef LOTTIE_USE_CACHE
-	auto width = size_t(0);
-	auto height = size_t(0);
-	if (animation) {
-		animation->size(width, height);
-	} else {
-		width = cache->originalSize().width();
-		height = cache->originalSize().height();
-	}
-	const auto rate = animation
-		? GetLottieFrameRate(animation, quality)
-		: cache->frameRate();
-	const auto count = animation
-		? GetLottieFramesCount(animation, quality)
-		: cache->framesCount();
-#else // LOTTIE_USE_CACHE
-	auto width = size_t(0);
-	auto height = size_t(0);
-	animation->size(width, height);
-	const auto rate = GetLottieFrameRate(animation, quality);
-	const auto count = GetLottieFramesCount(animation, quality);
-#endif // LOTTIE_USE_CACHE
-
-	auto result = Information();
-	result.size = QSize(
-		(width > 0 && width <= kMaxSize) ? int(width) : 0,
-		(height > 0 && height <= kMaxSize) ? int(height) : 0);
-	result.frameRate = (rate > 0 && rate <= kMaxFrameRate) ? int(rate) : 0;
-	result.framesCount = (count > 0 && count <= kMaxFramesCount)
-		? int(count)
-		: 0;
-	return result;
-}
-
 SharedState::SharedState(
-	std::unique_ptr<rlottie::Animation> animation,
-	const FrameRequest &request,
-	Quality quality)
-: _info(CalculateInformation(quality, animation.get(), nullptr))
-, _quality(quality)
-, _animation(std::move(animation)) {
-	construct(request);
+	std::shared_ptr<FrameProvider> provider,
+	const FrameRequest &request)
+: _provider(std::move(provider)) {
+	if (_provider->valid()) {
+		init(_provider->construct(request), request);
+	}
 }
 
-#ifdef LOTTIE_USE_CACHE
-SharedState::SharedState(
-	const QByteArray &content,
-	const ColorReplacements *replacements,
-	std::unique_ptr<rlottie::Animation> animation,
-	std::unique_ptr<Cache> cache,
-	const FrameRequest &request,
-	Quality quality)
-: _info(CalculateInformation(quality, animation.get(), cache.get()))
-, _quality(quality)
-, _cache(std::move(cache))
-, _animation(std::move(animation))
-, _content(content)
-, _replacements(replacements) {
-	construct(request);
-}
-#endif // LOTTIE_USE_CACHE
-
-void SharedState::construct(const FrameRequest &request) {
-	if (!isValid()) {
-		return;
-	}
-
-#ifdef LOTTIE_USE_CACHE
-	auto cover = _cache ? _cache->takeFirstFrame() : QImage();
-	if (!cover.isNull()) {
-		init(std::move(cover), request);
-		return;
-	}
-	if (_cache) {
-		_cache->init(
-			_info.size,
-			_info.frameRate,
-			_info.framesCount,
-			request);
-	}
-#else // LOTTIE_USE_CACHE
-	auto cover = QImage();
-#endif // LOTTIE_USE_CACHE
-
-	renderFrame(cover, request, 0);
-	init(std::move(cover), request);
-}
-
-bool SharedState::isValid() const {
-	return (_info.framesCount > 0)
-		&& (_info.frameRate > 0)
-		&& !_info.size.isEmpty();
-}
-
-void SharedState::renderFrame(
-		QImage &image,
-		const FrameRequest &request,
-		int index) {
-	if (!isValid()) {
-		return;
-	}
-
-	const auto size = request.box.isEmpty()
-		? _info.size
-		: request.size(_info.size, useCache());
-	if (!GoodStorageForFrame(image, size)) {
-		image = CreateFrameStorage(size);
-	}
-	if (renderFromCache(image, request, index)) {
-		return;
-	} else if (!_animation) {
-		_animation = details::CreateFromContent(_content, _replacements);
-	}
-
-	image.fill(Qt::transparent);
-	auto surface = rlottie::Surface(
-		reinterpret_cast<uint32_t*>(image.bits()),
-		image.width(),
-		image.height(),
-		image.bytesPerLine());
-	_animation->renderSync(
-		GetLottieFrameIndex(_animation.get(), _quality, index),
-		surface);
-#ifdef LOTTIE_USE_CACHE
-	if (_cache) {
-		_cache->appendFrame(image, request, index);
-		if (_cache->framesReady() == _cache->framesCount()) {
-			_animation = nullptr;
-		}
-	}
-#endif // LOTTIE_USE_CACHE
-}
-
-bool SharedState::useCache() const {
-#ifdef LOTTIE_USE_CACHE
-	return (_cache != nullptr);
-#else // LOTTIE_USE_CACHE
-	return false;
-#endif // LOTTIE_USE_CACHE
-}
-
-bool SharedState::renderFromCache(
-		QImage &to,
-		const FrameRequest &request,
-		int index) {
-#ifdef LOTTIE_USE_CACHE
-	return _cache && _cache->renderFrame(to, request, index);
-#else // LOTTIE_USE_CACHE
-	return false;
-#endif // LOTTIE_USE_CACHE
+int SharedState::sizeRounding() const {
+	return _provider->sizeRounding();
 }
 
 void SharedState::init(QImage cover, const FrameRequest &request) {
 	Expects(!initialized());
 
 	_frames[0].request = request;
-	_frames[0].useCache = useCache();
+	_frames[0].sizeRounding = sizeRounding();
 	_frames[0].original = std::move(cover);
 }
 
@@ -388,14 +226,12 @@ bool IsRendered(not_null<const Frame*> frame) {
 void SharedState::renderNextFrame(
 		not_null<Frame*> frame,
 		const FrameRequest &request) {
-	Expects(_info.framesCount > 0);
-
-	renderFrame(
+	_provider->render(
 		frame->original,
 		request,
-		(++_frameIndex) % _info.framesCount);
+		(++_frameIndex) % _provider->information().framesCount);
 	frame->request = request;
-	frame->useCache = useCache();
+	frame->sizeRounding = sizeRounding();
 	PrepareFrameByRequest(frame);
 	frame->index = _frameIndex;
 	frame->displayed = kTimeUnknown;
@@ -443,9 +279,10 @@ auto SharedState::renderNextFrame(const FrameRequest &request)
 }
 
 crl::time SharedState::countFrameDisplayTime(int index) const {
+	const auto rate = _provider->information().frameRate;
 	return _started
 		+ _delay
-		+ crl::time(1000) * (_skippedFrames + index) / _info.frameRate;
+		+ crl::time(1000) * (_skippedFrames + index) / rate;
 }
 
 int SharedState::counter() const {
@@ -469,7 +306,7 @@ not_null<const Frame*> SharedState::getFrame(int index) const {
 }
 
 Information SharedState::information() const {
-	return isValid() ? _info : Information();
+	return _provider->information();
 }
 
 not_null<Frame*> SharedState::frameForPaint() {
@@ -481,7 +318,7 @@ not_null<Frame*> SharedState::frameForPaint() {
 }
 
 int SharedState::framesCount() const {
-	return _info.framesCount;
+	return _provider->information().framesCount;
 }
 
 crl::time SharedState::nextFrameDisplayTime() const {

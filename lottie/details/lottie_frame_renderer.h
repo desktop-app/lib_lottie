@@ -29,7 +29,7 @@ inline constexpr auto kDisplayedInitial = crl::time(-1);
 
 class Player;
 class FrameProvider;
-class FrameProviderToken;
+struct FrameProviderToken;
 
 struct Frame {
 	QImage original;

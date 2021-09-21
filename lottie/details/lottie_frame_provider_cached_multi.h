@@ -48,12 +48,12 @@ public:
 private:
 	bool validateFramesPerCache();
 
-	std::vector<Cache> _caches;
-	FrameProviderDirect _direct;
-	FnMut<void(int index, QByteArray &&cached)> _put;
-	int _framesPerCache = 0;
 	const QByteArray _content;
 	const ColorReplacements *_replacements = nullptr;
+	FnMut<void(int index, QByteArray &&cached)> _put;
+	FrameProviderDirect _direct;
+	std::vector<Cache> _caches;
+	int _framesPerCache = 0;
 
 };
 

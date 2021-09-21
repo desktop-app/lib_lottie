@@ -19,10 +19,10 @@ FrameProviderCachedMulti::FrameProviderCachedMulti(
 	const FrameRequest &request,
 	Quality quality,
 	const ColorReplacements *replacements)
-: _direct(quality)
+: _content(content)
+, _replacements(replacements)
 , _put(std::move(put))
-, _content(content)
-, _replacements(replacements) {
+, _direct(quality) {
 	Expects(!caches.empty());
 
 	_caches.reserve(caches.size());

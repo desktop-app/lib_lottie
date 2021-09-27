@@ -171,7 +171,7 @@ crl::time Icon::Inner::animationDuration(int frameFrom, int frameTo) const {
 	const auto rate = _rlottie ? _rlottie->frameRate() : 0.;
 	const auto frames = std::abs(frameTo - frameFrom);
 	return (rate >= 1.)
-		? crl::time(std::round(frames / rate * 1000.))
+		? crl::time(base::SafeRound(frames / rate * 1000.))
 		: 0;
 }
 
@@ -363,7 +363,7 @@ void Icon::frameJumpFinished() {
 }
 
 int Icon::wantedFrameIndex() const {
-	return int(std::round(_animation.value(_animationFrameTo)));
+	return int(base::SafeRound(_animation.value(_animationFrameTo)));
 }
 
 void Icon::preloadNextFrame() const {

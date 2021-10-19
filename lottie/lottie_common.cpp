@@ -9,7 +9,7 @@
 #include "base/algorithm.h"
 
 #include <QFile>
-#include <QTextCodec>
+#include <QStringDecoder>
 
 namespace Lottie {
 namespace {
@@ -79,8 +79,8 @@ std::string ReadUtf8(const QByteArray &data) {
 	if (!info.codec || true) {
 		return std::string(bytes, length);
 	}
-	const auto codec = QTextCodec::codecForName(info.codec);
-	return codec->toUnicode(bytes, length).toUtf8().toStdString();
+	auto toUnicode = QStringDecoder(info.codec);
+	return QString(toUnicode(QByteArray(bytes, length))).toStdString();
 }
 
 bool GoodStorageForFrame(const QImage &storage, QSize size) {

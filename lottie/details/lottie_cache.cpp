@@ -12,6 +12,7 @@
 #include "base/assertion.h"
 
 #include <QDataStream>
+#include <QIODevice>
 #include <range/v3/numeric/accumulate.hpp>
 
 namespace Lottie {

@@ -46,7 +46,7 @@ void DecodeYUV2RGB(
 		0
 	};
 	uint8_t *dst[AV_NUM_DATA_POINTERS] = { to.bits(), nullptr };
-	int dstLineSize[AV_NUM_DATA_POINTERS] = { to.bytesPerLine(), 0 };
+	int dstLineSize[AV_NUM_DATA_POINTERS] = { int(to.bytesPerLine()), 0 };
 
 	sws_scale(
 		context.get(),
@@ -96,7 +96,7 @@ void EncodeRGB2YUV(
 
 	// AV_NUM_DATA_POINTERS defined in AVFrame struct
 	const uint8_t *src[AV_NUM_DATA_POINTERS] = { from.bits(), nullptr };
-	int srcLineSize[AV_NUM_DATA_POINTERS] = { from.bytesPerLine(), 0 };
+	int srcLineSize[AV_NUM_DATA_POINTERS] = { int(from.bytesPerLine()), 0 };
 	uint8_t *dst[AV_NUM_DATA_POINTERS] = {
 		to.yData(),
 		to.uData(),

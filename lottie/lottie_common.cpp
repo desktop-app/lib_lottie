@@ -9,7 +9,6 @@
 #include "base/algorithm.h"
 
 #include <QFile>
-#include <QTextCodec>
 
 namespace Lottie {
 namespace {
@@ -50,37 +49,22 @@ std::string ReadUtf8(const QByteArray &data) {
 	if (data.size() < 4) {
 		return data.toStdString();
 	}
-	struct Info {
-		int skip = 0;
-		const char *codec = nullptr;
-	};
-	const auto info = [&]() -> Info {
-		const auto bom = uint32(uint8(data[0]))
-			| (uint32(uint8(data[1])) << 8)
-			| (uint32(uint8(data[2])) << 16)
-			| (uint32(uint8(data[3])) << 24);
-		if (bom == 0xFFFE0000U) {
-			return { 4, "UTF-32BE" };
-		} else if (bom == 0x0000FEFFU) {
-			return { 4, "UTF-32LE" };
-		} else if ((bom & 0xFFFFU) == 0xFFFEU) {
-			return { 2, "UTF-16BE" };
-		} else if ((bom & 0xFFFFU) == 0xFEFFU) {
-			return { 2, "UTF-16LE" };
-		} else if ((bom & 0xFFFFFFU) == 0xBFBBEFU) {
-			return { 3 };
-		}
-		return {};
-	}();
-	const auto bytes = data.data() + info.skip;
-	const auto length = data.size() - info.skip;
+	const auto bom = uint32(uint8(data[0]))
+		| (uint32(uint8(data[1])) << 8)
+		| (uint32(uint8(data[2])) << 16)
+		| (uint32(uint8(data[3])) << 24);
+	const auto skip = ((bom == 0xFFFE0000U) || (bom == 0x0000FEFFU))
+		? 4
+		: (((bom & 0xFFFFU) == 0xFFFEU) || ((bom & 0xFFFFU) == 0xFEFFU))
+		? 2
+		: ((bom & 0xFFFFFFU) == 0xBFBBEFU)
+		? 3
+		: 0;
+	const auto bytes = data.data() + skip;
+	const auto length = data.size() - skip;
 	// Old RapidJSON didn't convert encoding, just skipped BOM.
 	// We emulate old behavior here, so don't convert as well.
-	if (!info.codec || true) {
-		return std::string(bytes, length);
-	}
-	const auto codec = QTextCodec::codecForName(info.codec);
-	return codec->toUnicode(bytes, length).toUtf8().toStdString();
+	return std::string(bytes, length);
 }
 
 bool GoodStorageForFrame(const QImage &storage, QSize size) {

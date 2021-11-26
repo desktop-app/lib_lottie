@@ -63,8 +63,18 @@ enum class Quality : char {
 	Synchronous
 };
 
+enum class SkinModifier {
+	None,
+	Color1,
+	Color2,
+	Color3,
+	Color4,
+	Color5,
+};
+
 struct ColorReplacements {
 	std::vector<std::pair<std::uint32_t, std::uint32_t>> replacements;
+	SkinModifier modifier = SkinModifier::None;
 	uint8 tag = 0;
 };
 

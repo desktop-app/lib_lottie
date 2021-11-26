@@ -30,6 +30,19 @@ int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality
 	return (quality == Quality::Default && rate == 60) ? (index * 2) : index;
 }
 
+[[nodiscard]] rlottie::FitzModifier MapModifier(SkinModifier modifier) {
+	using Result = rlottie::FitzModifier;
+	switch (modifier) {
+	case SkinModifier::None: return Result::None;
+	case SkinModifier::Color1: return Result::Type12;
+	case SkinModifier::Color2: return Result::Type3;
+	case SkinModifier::Color3: return Result::Type4;
+	case SkinModifier::Color4: return Result::Type5;
+	case SkinModifier::Color5: return Result::Type6;
+	}
+	Unexpected("Unexpected modifier in MapModifier.");
+}
+
 } // namespace
 
 FrameProviderDirect::FrameProviderDirect(Quality quality)
@@ -56,7 +69,10 @@ bool FrameProviderDirect::load(
 		false,
 		(replacements
 			? replacements->replacements
-			: std::vector<std::pair<std::uint32_t, std::uint32_t>>()));
+			: std::vector<std::pair<std::uint32_t, std::uint32_t>>()),
+		(replacements
+			? MapModifier(replacements->modifier)
+			: rlottie::FitzModifier::None));
 #else
 	_animation = rlottie::Animation::loadFromData(
 		string,

@@ -77,6 +77,7 @@ public:
 
 	[[nodiscard]] bool valid() const;
 	[[nodiscard]] QSize size() const;
+	[[nodiscard]] int framesCount() const;
 	[[nodiscard]] Frame &frame();
 	[[nodiscard]] const Frame &frame() const;
 
@@ -96,6 +97,7 @@ private:
 	Frame _preloaded;
 	std::atomic<PreloadState> _preloadState = PreloadState::None;
 	base::weak_ptr<Icon> _weak;
+	int _framesCount = 0;
 	mutable crl::semaphore _semaphore;
 	mutable bool _ready = false;
 
@@ -134,6 +136,7 @@ void Icon::Inner::prepareFromAsync(
 		image.height(),
 		image.bytesPerLine());
 	_rlottie->renderSync(_current.index, std::move(surface));
+	_framesCount = _rlottie->totalFrame();
 	_current.renderedColor = RealRenderedColor(color);
 	_current.renderedImage = std::move(image);
 }
@@ -147,13 +150,18 @@ void Icon::Inner::waitTillPrepared() const {
 
 bool Icon::Inner::valid() const {
 	waitTillPrepared();
-	return (_rlottie != nullptr);
+	return (_rlottie != nullptr) && (_framesCount > 0);
 }
 
 QSize Icon::Inner::size() const {
 	return valid()
 		? (_current.renderedImage.size() / style::DevicePixelRatio())
 		: QSize();
+}
+
+int Icon::Inner::framesCount() const {
+	waitTillPrepared();
+	return _framesCount;
 }
 
 Icon::Frame &Icon::Inner::frame() {
@@ -250,6 +258,10 @@ int Icon::frameIndex() const {
 	return _inner->frame().index;
 }
 
+int Icon::framesCount() const {
+	return _inner->framesCount();
+}
+
 QImage Icon::frame() const {
 	preloadNextFrame();
 	auto &frame = _inner->frame();
@@ -328,6 +340,18 @@ void Icon::paint(
 			&frame.colorizedImage);
 		p.drawImage(rect, frame.colorizedImage);
 	}
+}
+
+void Icon::paintInCenter(
+		QPainter &p,
+		QRect rect,
+		std::optional<QColor> colorOverride) {
+	const auto my = size();
+	paint(
+		p,
+		rect.x() + (rect.width() - my.width()) / 2,
+		rect.y() + (rect.height() - my.height()) / 2,
+		colorOverride);
 }
 
 void Icon::animate(

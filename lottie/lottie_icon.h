@@ -32,6 +32,7 @@ public:
 
 	[[nodiscard]] bool valid() const;
 	[[nodiscard]] int frameIndex() const;
+	[[nodiscard]] int framesCount() const;
 	[[nodiscard]] QImage frame() const;
 	[[nodiscard]] int width() const;
 	[[nodiscard]] int height() const;
@@ -41,6 +42,10 @@ public:
 		QPainter &p,
 		int x,
 		int y,
+		std::optional<QColor> colorOverride = std::nullopt);
+	void paintInCenter(
+		QPainter &p,
+		QRect rect,
 		std::optional<QColor> colorOverride = std::nullopt);
 	void animate(
 		Fn<void()> update,

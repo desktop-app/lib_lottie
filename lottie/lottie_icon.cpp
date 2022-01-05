@@ -59,6 +59,7 @@ namespace {
 
 struct Icon::Frame {
 	int index = 0;
+	QImage resizedImage;
 	QImage renderedImage;
 	QImage colorizedImage;
 	QColor renderedColor;
@@ -85,7 +86,7 @@ public:
 	[[nodiscard]] crl::time animationDuration(
 		int frameFrom,
 		int frameTo) const;
-	void moveToFrame(int frame, QColor color);
+	void moveToFrame(int frame, QColor color, QSize updatedDesiredSize);
 
 private:
 	enum class PreloadState {
@@ -95,8 +96,12 @@ private:
 	};
 	std::unique_ptr<rlottie::Animation> _rlottie;
 	Frame _current;
-	Frame _preloaded;
+	QSize _desiredSize;
 	std::atomic<PreloadState> _preloadState = PreloadState::None;
+
+	Frame _preloaded; // Changed on main or async depending on _preloadState.
+	QSize _preloadImageSize;
+
 	base::weak_ptr<Icon> _weak;
 	int _framesCount = 0;
 	mutable crl::semaphore _semaphore;
@@ -118,15 +123,19 @@ void Icon::Inner::prepareFromAsync(
 	if (!_weak) {
 		return;
 	}
-	_rlottie = CreateFromContent(ReadContent(json, path), color);
-	if (!_rlottie || !_weak) {
+	auto rlottie = CreateFromContent(ReadContent(json, path), color);
+	if (!rlottie || !_weak) {
 		return;
 	}
 	auto width = size_t();
 	auto height = size_t();
-	_rlottie->size(width, height);
-	_framesCount = _rlottie->totalFrame();
-	if (_current.index < 0) {
+	rlottie->size(width, height);
+	_framesCount = rlottie->totalFrame();
+	if (!_framesCount || !width || !height) {
+		return;
+	}
+	_rlottie = std::move(rlottie);
+	while (_current.index < 0) {
 		_current.index += _framesCount;
 	}
 	const auto size = sizeOverride.isEmpty()
@@ -143,6 +152,7 @@ void Icon::Inner::prepareFromAsync(
 	_rlottie->renderSync(_current.index, std::move(surface));
 	_current.renderedColor = RealRenderedColor(color);
 	_current.renderedImage = std::move(image);
+	_desiredSize = size;
 }
 
 void Icon::Inner::waitTillPrepared() const {
@@ -154,13 +164,12 @@ void Icon::Inner::waitTillPrepared() const {
 
 bool Icon::Inner::valid() const {
 	waitTillPrepared();
-	return (_rlottie != nullptr) && (_framesCount > 0);
+	return (_rlottie != nullptr);
 }
 
 QSize Icon::Inner::size() const {
-	return valid()
-		? (_current.renderedImage.size() / style::DevicePixelRatio())
-		: QSize();
+	waitTillPrepared();
+	return _desiredSize;
 }
 
 int Icon::Inner::framesCount() const {
@@ -187,21 +196,35 @@ crl::time Icon::Inner::animationDuration(int frameFrom, int frameTo) const {
 		: 0;
 }
 
-void Icon::Inner::moveToFrame(int frame, QColor color) {
+void Icon::Inner::moveToFrame(
+		int frame,
+		QColor color,
+		QSize updatedDesiredSize) {
 	waitTillPrepared();
+	if (frame < 0) {
+		frame += _framesCount;
+	}
 	const auto state = _preloadState.load();
 	const auto shown = _current.index;
+	if (!updatedDesiredSize.isEmpty()) {
+		_desiredSize = updatedDesiredSize;
+	}
+	const auto desiredImageSize = _desiredSize * style::DevicePixelRatio();
 	if (shown == frame || !_rlottie || state == PreloadState::Preloading) {
 		return;
 	} else if (state == PreloadState::Ready) {
 		if (_preloaded.index == frame) {
 			std::swap(_current, _preloaded);
-			return;
+			const auto factor = style::DevicePixelRatio();
+			if (_current.renderedImage.size() == desiredImageSize) {
+				return;
+			}
 		} else if ((shown < _preloaded.index && _preloaded.index < frame)
 			|| (shown > _preloaded.index && _preloaded.index > frame)) {
 			std::swap(_current, _preloaded);
 		}
 	}
+	_preloadImageSize = desiredImageSize;
 	_preloaded.index = frame;
 	_preloadState = PreloadState::Preloading;
 	crl::async([
@@ -212,11 +235,12 @@ void Icon::Inner::moveToFrame(int frame, QColor color) {
 		if (!_weak) {
 			return;
 		}
-		const auto size = _current.renderedImage.size();
-
 		auto &image = _preloaded.renderedImage;
+		const auto &size = _preloadImageSize;
 		if (!GoodStorageForFrame(image, size)) {
-			image = CreateFrameStorage(size);
+			image = GoodStorageForFrame(_preloaded.resizedImage, size)
+				? base::take(_preloaded.resizedImage)
+				: CreateFrameStorage(size);
 		}
 		image.fill(Qt::transparent);
 		auto surface = rlottie::Surface(
@@ -227,6 +251,7 @@ void Icon::Inner::moveToFrame(int frame, QColor color) {
 		_rlottie->renderSync(_preloaded.index, std::move(surface));
 		_preloaded.renderedColor = color;
 		_preloaded.renderedImage = std::move(image);
+		_preloaded.resizedImage = QImage();
 		_preloadState = PreloadState::Ready;
 		crl::on_main(_weak, [=] {
 			_weak->frameJumpFinished();
@@ -267,25 +292,46 @@ int Icon::framesCount() const {
 }
 
 QImage Icon::frame() const {
-	preloadNextFrame();
+	return frame(QSize(), nullptr).image;
+}
+
+Icon::ResizedFrame Icon::frame(
+		QSize desiredSize,
+		Fn<void()> updateWithPerfect) const {
+	preloadNextFrame(desiredSize);
+
+	const auto desired = size() * style::DevicePixelRatio();
 	auto &frame = _inner->frame();
-	if (frame.renderedImage.isNull() || !_color) {
-		return frame.renderedImage;
+	if (frame.renderedImage.isNull()) {
+		return { frame.renderedImage };
+	} else if (!_color) {
+		if (frame.renderedImage.size() == desired) {
+			return { frame.renderedImage };
+		} else if (frame.resizedImage.size() != desired) {
+			frame.resizedImage = frame.renderedImage.scaled(
+				desired,
+				Qt::IgnoreAspectRatio,
+				Qt::SmoothTransformation);
+		}
+		if (updateWithPerfect) {
+			_repaint = std::move(updateWithPerfect);
+		}
+		return { frame.resizedImage, true };
 	}
+	Assert(frame.renderedImage.size() == desired);
 	const auto color = (*_color)->c;
 	if (color == frame.renderedColor) {
-		return frame.renderedImage;
+		return { frame.renderedImage };
 	} else if (!frame.colorizedImage.isNull()
 		&& color == frame.colorizedColor) {
-		return frame.colorizedImage;
+		return { frame.colorizedImage };
 	}
 	if (frame.colorizedImage.isNull()) {
-		frame.colorizedImage = CreateFrameStorage(
-			frame.renderedImage.size());
+		frame.colorizedImage = CreateFrameStorage(desired);
 	}
 	frame.colorizedColor = color;
 	style::colorizeImage(frame.renderedImage, color, &frame.colorizedImage);
-	return frame.colorizedImage;
+	return { frame.colorizedImage };
 }
 
 int Icon::width() const {
@@ -395,10 +441,14 @@ int Icon::wantedFrameIndex() const {
 	return int(base::SafeRound(_animation.value(_animationFrameTo)));
 }
 
-void Icon::preloadNextFrame() const {
+void Icon::preloadNextFrame(QSize updatedDesiredSize) const {
 	_inner->moveToFrame(
 		wantedFrameIndex(),
-		_color ? (*_color)->c : Qt::white);
+		_color ? (*_color)->c : Qt::white,
+		updatedDesiredSize);
+	if (_animationFrameTo < 0) {
+		_animationFrameTo += framesCount();
+	}
 }
 
 bool Icon::animating() const {

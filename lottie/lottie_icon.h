@@ -40,6 +40,14 @@ public:
 	[[nodiscard]] int height() const;
 	[[nodiscard]] QSize size() const;
 
+	struct ResizedFrame {
+		QImage image;
+		bool scaled = false;
+	};
+	[[nodiscard]] ResizedFrame frame(
+		QSize desiredSize,
+		Fn<void()> updateWithPerfect) const;
+
 	void paint(
 		QPainter &p,
 		int x,
@@ -64,14 +72,14 @@ private:
 
 	void wait() const;
 	[[nodiscard]] int wantedFrameIndex() const;
-	void preloadNextFrame() const;
+	void preloadNextFrame(QSize updatedDesiredSize = QSize()) const;
 	void frameJumpFinished();
 
 	std::shared_ptr<Inner> _inner;
 	const style::color *_color = nullptr;
 	Ui::Animations::Simple _animation;
-	int _animationFrameTo = 0;
-	Fn<void()> _repaint;
+	mutable int _animationFrameTo = 0;
+	mutable Fn<void()> _repaint;
 
 };
 

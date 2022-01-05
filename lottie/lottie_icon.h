@@ -19,7 +19,7 @@ namespace Lottie {
 struct IconDescriptor {
 	QString path;
 	QByteArray json;
-	const style::color &color;
+	const style::color *color = nullptr;
 	QSize sizeOverride;
 	int frame = 0;
 };
@@ -29,6 +29,8 @@ public:
 	explicit Icon(IconDescriptor &&descriptor);
 	Icon(const Icon &other) = delete;
 	Icon &operator=(const Icon &other) = delete;
+	Icon(Icon &&other) = delete; // _animation captures 'this'.
+	Icon &operator=(Icon &&other) = delete;
 
 	[[nodiscard]] bool valid() const;
 	[[nodiscard]] int frameIndex() const;
@@ -66,7 +68,7 @@ private:
 	void frameJumpFinished();
 
 	std::shared_ptr<Inner> _inner;
-	const style::color &_color;
+	const style::color *_color = nullptr;
 	Ui::Animations::Simple _animation;
 	int _animationFrameTo = 0;
 	Fn<void()> _repaint;

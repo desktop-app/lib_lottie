@@ -7,6 +7,7 @@
 #include "lottie/lottie_icon.h"
 
 #include "lottie/lottie_common.h"
+#include "ui/image/image_prepare.h"
 #include "ui/style/style_core.h"
 
 #include <QtGui/QPainter>
@@ -21,7 +22,7 @@ namespace {
 [[nodiscard]] std::unique_ptr<rlottie::Animation> CreateFromContent(
 		const QByteArray &content,
 		QColor replacement) {
-	auto string = ReadUtf8(content);
+	auto string = ReadUtf8(Images::UnpackGzip(content));
 #ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
 	auto list = std::vector<std::pair<std::uint32_t, std::uint32_t>>();
 	if (replacement != Qt::white) {
@@ -124,6 +125,10 @@ void Icon::Inner::prepareFromAsync(
 	auto width = size_t();
 	auto height = size_t();
 	_rlottie->size(width, height);
+	_framesCount = _rlottie->totalFrame();
+	if (_current.index < 0) {
+		_current.index += _framesCount;
+	}
 	const auto size = sizeOverride.isEmpty()
 		? style::ConvertScale(QSize{ int(width), int(height) })
 		: sizeOverride;
@@ -136,7 +141,6 @@ void Icon::Inner::prepareFromAsync(
 		image.height(),
 		image.bytesPerLine());
 	_rlottie->renderSync(_current.index, std::move(surface));
-	_framesCount = _rlottie->totalFrame();
 	_current.renderedColor = RealRenderedColor(color);
 	_current.renderedImage = std::move(image);
 }
@@ -239,7 +243,7 @@ Icon::Icon(IconDescriptor &&descriptor)
 		path = descriptor.path,
 		bytes = descriptor.json,
 		sizeOverride = descriptor.sizeOverride,
-		color = _color->c
+		color = (_color ? (*_color)->c : Qt::white)
 	] {
 		inner->prepareFromAsync(path, bytes, sizeOverride, color);
 	});
@@ -265,10 +269,10 @@ int Icon::framesCount() const {
 QImage Icon::frame() const {
 	preloadNextFrame();
 	auto &frame = _inner->frame();
-	if (frame.renderedImage.isNull()) {
+	if (frame.renderedImage.isNull() || !_color) {
 		return frame.renderedImage;
 	}
-	const auto color = _color->c;
+	const auto color = (*_color)->c;
 	if (color == frame.renderedColor) {
 		return frame.renderedImage;
 	} else if (!frame.colorizedImage.isNull()
@@ -303,12 +307,13 @@ void Icon::paint(
 		std::optional<QColor> colorOverride) {
 	preloadNextFrame();
 	auto &frame = _inner->frame();
-	const auto color = colorOverride.value_or(_color->c);
+	const auto color = colorOverride.value_or(
+		_color ? (*_color)->c : Qt::white);
 	if (frame.renderedImage.isNull() || color.alpha() == 0) {
 		return;
 	}
 	const auto rect = QRect{ QPoint(x, y), size() };
-	if (color == frame.renderedColor) {
+	if (color == frame.renderedColor || !_color) {
 		p.drawImage(rect, frame.renderedImage);
 	} else if (color.alphaF() < 1.
 		&& (QColor(color.red(), color.green(), color.blue())
@@ -391,7 +396,9 @@ int Icon::wantedFrameIndex() const {
 }
 
 void Icon::preloadNextFrame() const {
-	_inner->moveToFrame(wantedFrameIndex(), _color->c);
+	_inner->moveToFrame(
+		wantedFrameIndex(),
+		_color ? (*_color)->c : Qt::white);
 }
 
 bool Icon::animating() const {

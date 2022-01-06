@@ -94,6 +94,10 @@ private:
 		Preloading,
 		Ready,
 	};
+
+	// Called from crl::async.
+	void renderPreloadFrame(const QColor &color);
+
 	std::unique_ptr<rlottie::Animation> _rlottie;
 	Frame _current;
 	QSize _desiredSize;
@@ -210,12 +214,17 @@ void Icon::Inner::moveToFrame(
 		_desiredSize = updatedDesiredSize;
 	}
 	const auto desiredImageSize = _desiredSize * style::DevicePixelRatio();
-	if (shown == frame || !_rlottie || state == PreloadState::Preloading) {
+	const auto already = (shown == frame);
+	if (!_rlottie
+		|| state == PreloadState::Preloading
+		|| (shown == frame
+			&& (_current.renderedImage.size() == desiredImageSize))) {
 		return;
 	} else if (state == PreloadState::Ready) {
-		if (_preloaded.index == frame) {
+		if (_preloaded.index == frame
+			&& (shown != frame
+				|| _preloaded.renderedImage.size() == desiredImageSize)) {
 			std::swap(_current, _preloaded);
-			const auto factor = style::DevicePixelRatio();
 			if (_current.renderedImage.size() == desiredImageSize) {
 				return;
 			}
@@ -228,34 +237,36 @@ void Icon::Inner::moveToFrame(
 	_preloaded.index = frame;
 	_preloadState = PreloadState::Preloading;
 	crl::async([
-		this,
 		guard = shared_from_this(),
 		color = RealRenderedColor(color)
 	] {
-		if (!_weak) {
-			return;
-		}
-		auto &image = _preloaded.renderedImage;
-		const auto &size = _preloadImageSize;
-		if (!GoodStorageForFrame(image, size)) {
-			image = GoodStorageForFrame(_preloaded.resizedImage, size)
-				? base::take(_preloaded.resizedImage)
-				: CreateFrameStorage(size);
-		}
-		image.fill(Qt::transparent);
-		auto surface = rlottie::Surface(
-			reinterpret_cast<uint32_t*>(image.bits()),
-			image.width(),
-			image.height(),
-			image.bytesPerLine());
-		_rlottie->renderSync(_preloaded.index, std::move(surface));
-		_preloaded.renderedColor = color;
-		_preloaded.renderedImage = std::move(image);
-		_preloaded.resizedImage = QImage();
-		_preloadState = PreloadState::Ready;
-		crl::on_main(_weak, [=] {
-			_weak->frameJumpFinished();
-		});
+		guard->renderPreloadFrame(color);
+	});
+}
+
+void Icon::Inner::renderPreloadFrame(const QColor &color) {
+	if (!_weak) {
+		return;
+	}
+	auto &image = _preloaded.renderedImage;
+	const auto &size = _preloadImageSize;
+	if (!GoodStorageForFrame(image, size)) {
+		image = GoodStorageForFrame(_preloaded.resizedImage, size)
+			? base::take(_preloaded.resizedImage)
+			: CreateFrameStorage(size);
+	}
+	image.fill(Qt::black);
+	auto surface = rlottie::Surface(
+		reinterpret_cast<uint32_t*>(image.bits()),
+		image.width(),
+		image.height(),
+		image.bytesPerLine());
+	_rlottie->renderSync(_preloaded.index, std::move(surface));
+	_preloaded.renderedColor = color;
+	_preloaded.resizedImage = QImage();
+	_preloadState = PreloadState::Ready;
+	crl::on_main(_weak, [=] {
+		_weak->frameJumpFinished();
 	});
 }
 

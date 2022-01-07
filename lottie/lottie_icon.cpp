@@ -68,7 +68,10 @@ struct Icon::Frame {
 
 class Icon::Inner final : public std::enable_shared_from_this<Inner> {
 public:
-	Inner(int frameIndex, base::weak_ptr<Icon> weak);
+	Inner(
+		int frameIndex,
+		QSize sizeForScale,
+		base::weak_ptr<Icon> weak);
 
 	void prepareFromAsync(
 		const QString &path,
@@ -98,6 +101,7 @@ private:
 	// Called from crl::async.
 	void renderPreloadFrame(const QColor &color);
 
+	const QSize _sizeForScale;
 	std::unique_ptr<rlottie::Animation> _rlottie;
 	Frame _current;
 	QSize _desiredSize;
@@ -113,8 +117,12 @@ private:
 
 };
 
-Icon::Inner::Inner(int frameIndex, base::weak_ptr<Icon> weak)
-: _current{ .index = frameIndex }
+Icon::Inner::Inner(
+	int frameIndex,
+	QSize sizeForScale,
+	base::weak_ptr<Icon> weak)
+: _sizeForScale(sizeForScale)
+, _current { .index = frameIndex }
 , _weak(weak) {
 }
 
@@ -142,9 +150,12 @@ void Icon::Inner::prepareFromAsync(
 	while (_current.index < 0) {
 		_current.index += _framesCount;
 	}
-	const auto size = sizeOverride.isEmpty()
-		? style::ConvertScale(QSize{ int(width), int(height) })
-		: sizeOverride;
+	_desiredSize = !sizeOverride.isEmpty()
+		? sizeOverride
+		: style::ConvertScale(QSize{ int(width), int(height) });
+	const auto size = !_sizeForScale.isEmpty()
+		? _sizeForScale
+		: _desiredSize;
 	auto &image = _current.renderedImage;
 	image = CreateFrameStorage(size * style::DevicePixelRatio());
 	image.fill(Qt::transparent);
@@ -156,7 +167,12 @@ void Icon::Inner::prepareFromAsync(
 	_rlottie->renderSync(_current.index, std::move(surface));
 	_current.renderedColor = RealRenderedColor(color);
 	_current.renderedImage = std::move(image);
-	_desiredSize = size;
+	if (size != _desiredSize) {
+		_current.resizedImage = _current.renderedImage.scaled(
+			_desiredSize,
+			Qt::IgnoreAspectRatio,
+			Qt::SmoothTransformation);
+	}
 }
 
 void Icon::Inner::waitTillPrepared() const {
@@ -218,14 +234,16 @@ void Icon::Inner::moveToFrame(
 	if (!_rlottie
 		|| state == PreloadState::Preloading
 		|| (shown == frame
-			&& (_current.renderedImage.size() == desiredImageSize))) {
+			&& (_current.renderedImage.size() == desiredImageSize
+				|| !_sizeForScale.isEmpty()))) {
 		return;
 	} else if (state == PreloadState::Ready) {
 		if (_preloaded.index == frame
 			&& (shown != frame
 				|| _preloaded.renderedImage.size() == desiredImageSize)) {
 			std::swap(_current, _preloaded);
-			if (_current.renderedImage.size() == desiredImageSize) {
+			if (_current.renderedImage.size() == desiredImageSize
+				|| !_sizeForScale.isEmpty()) {
 				return;
 			}
 		} else if ((shown < _preloaded.index && _preloaded.index < frame)
@@ -249,13 +267,16 @@ void Icon::Inner::renderPreloadFrame(const QColor &color) {
 		return;
 	}
 	auto &image = _preloaded.renderedImage;
-	const auto &size = _preloadImageSize;
+
+	const auto size = !_sizeForScale.isEmpty()
+		? _sizeForScale
+		: _preloadImageSize;
 	if (!GoodStorageForFrame(image, size)) {
 		image = GoodStorageForFrame(_preloaded.resizedImage, size)
 			? base::take(_preloaded.resizedImage)
 			: CreateFrameStorage(size);
 	}
-	image.fill(Qt::black);
+	image.fill(Qt::transparent);
 	auto surface = rlottie::Surface(
 		reinterpret_cast<uint32_t*>(image.bits()),
 		image.width(),
@@ -263,7 +284,12 @@ void Icon::Inner::renderPreloadFrame(const QColor &color) {
 		image.bytesPerLine());
 	_rlottie->renderSync(_preloaded.index, std::move(surface));
 	_preloaded.renderedColor = color;
-	_preloaded.resizedImage = QImage();
+	if (size != _preloadImageSize) {
+		_preloaded.resizedImage = _preloaded.renderedImage.scaled(
+			_preloadImageSize,
+			Qt::IgnoreAspectRatio,
+			Qt::SmoothTransformation);
+	}
 	_preloadState = PreloadState::Ready;
 	crl::on_main(_weak, [=] {
 		_weak->frameJumpFinished();
@@ -271,7 +297,10 @@ void Icon::Inner::renderPreloadFrame(const QColor &color) {
 }
 
 Icon::Icon(IconDescriptor &&descriptor)
-: _inner(std::make_shared<Inner>(descriptor.frame, base::make_weak(this)))
+: _inner(std::make_shared<Inner>(
+	descriptor.frame,
+	descriptor.sizeForScale,
+	base::make_weak(this)))
 , _color(descriptor.color)
 , _animationFrameTo(descriptor.frame) {
 	crl::async([

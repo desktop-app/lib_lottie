@@ -21,6 +21,7 @@ struct IconDescriptor {
 	QByteArray json;
 	const style::color *color = nullptr;
 	QSize sizeOverride;
+	QSize sizeForScale;
 	int frame = 0;
 };
 

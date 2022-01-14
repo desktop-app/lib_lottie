@@ -214,7 +214,6 @@ void Icon::Inner::moveToFrame(
 		_desiredSize = updatedDesiredSize;
 	}
 	const auto desiredImageSize = _desiredSize * style::DevicePixelRatio();
-	const auto already = (shown == frame);
 	if (!_rlottie
 		|| state == PreloadState::Preloading
 		|| (shown == frame

@@ -63,7 +63,7 @@ private:
 		const FrameRequest &request) {
 	if (request.box.isEmpty()) {
 		return true;
-	} else if (request.colored.has_value() || request.mirrorHorizontal) {
+	} else if (request.colored.alpha() != 0 || request.mirrorHorizontal) {
 		return false;
 	}
 	const auto size = image.size();
@@ -95,8 +95,8 @@ private:
 	if (request.mirrorHorizontal) {
 		storage = std::move(storage).mirrored(true, false);
 	}
-	if (request.colored.has_value()) {
-		storage = Images::Colored(std::move(storage), *request.colored);
+	if (request.colored.alpha() != 0) {
+		storage = Images::Colored(std::move(storage), request.colored);
 	}
 	return storage;
 }

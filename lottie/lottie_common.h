@@ -37,7 +37,7 @@ enum class Error {
 
 struct FrameRequest {
 	QSize box;
-	std::optional<QColor> colored;
+	QColor colored = QColor(0, 0, 0, 0);
 	bool mirrorHorizontal = false;
 
 	[[nodiscard]] bool empty() const {

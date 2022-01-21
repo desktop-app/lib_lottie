@@ -9,6 +9,7 @@
 #include "lottie/lottie_player.h"
 #include "lottie/lottie_animation.h"
 #include "lottie/details/lottie_frame_provider.h"
+#include "ui/image/image_prepare.h"
 #include "base/flat_map.h"
 #include "base/assertion.h"
 
@@ -16,10 +17,6 @@
 #include <rlottie.h>
 #include <range/v3/algorithm/find.hpp>
 #include <range/v3/algorithm/count_if.hpp>
-
-namespace Images {
-QImage prepareColored(QColor add, QImage image);
-} // namespace Images
 
 namespace Lottie {
 namespace {
@@ -99,7 +96,7 @@ private:
 		storage = std::move(storage).mirrored(true, false);
 	}
 	if (request.colored.has_value()) {
-		storage = Images::prepareColored(*request.colored, std::move(storage));
+		storage = Images::Colored(std::move(storage), *request.colored);
 	}
 	return storage;
 }

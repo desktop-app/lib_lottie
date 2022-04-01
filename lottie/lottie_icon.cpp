@@ -55,6 +55,18 @@ namespace {
 #endif
 }
 
+[[nodiscard]] QByteArray ReadIconContent(
+		const QString &name,
+		const QByteArray &json,
+		const QString &path) {
+	return !json.isEmpty()
+		? json
+		: !path.isEmpty()
+		? ReadContent(json, path)
+		: Images::UnpackGzip(
+			ReadContent({}, u":/animations/"_q + name + u".tgs"_q));
+}
+
 } // namespace
 
 struct Icon::Frame {
@@ -71,6 +83,7 @@ public:
 	Inner(int frameIndex, base::weak_ptr<Icon> weak);
 
 	void prepareFromAsync(
+		const QString &name,
 		const QString &path,
 		const QByteArray &json,
 		QSize sizeOverride,
@@ -119,6 +132,7 @@ Icon::Inner::Inner(int frameIndex, base::weak_ptr<Icon> weak)
 }
 
 void Icon::Inner::prepareFromAsync(
+		const QString &name,
 		const QString &path,
 		const QByteArray &json,
 		QSize sizeOverride,
@@ -127,7 +141,9 @@ void Icon::Inner::prepareFromAsync(
 	if (!_weak) {
 		return;
 	}
-	auto rlottie = CreateFromContent(ReadContent(json, path), color);
+	auto rlottie = CreateFromContent(
+		ReadIconContent(name, json, path),
+		color);
 	if (!rlottie || !_weak) {
 		return;
 	}
@@ -275,12 +291,13 @@ Icon::Icon(IconDescriptor &&descriptor)
 , _animationFrameTo(descriptor.frame) {
 	crl::async([
 		inner = _inner,
+		name = descriptor.name,
 		path = descriptor.path,
 		bytes = descriptor.json,
 		sizeOverride = descriptor.sizeOverride,
 		color = (_color ? (*_color)->c : Qt::white)
 	] {
-		inner->prepareFromAsync(path, bytes, sizeOverride, color);
+		inner->prepareFromAsync(name, path, bytes, sizeOverride, color);
 	});
 }
 
@@ -463,6 +480,10 @@ void Icon::preloadNextFrame(QSize updatedDesiredSize) const {
 
 bool Icon::animating() const {
 	return _animation.animating();
+}
+
+std::unique_ptr<Icon> MakeIcon(IconDescriptor &&descriptor) {
+	return std::make_unique<Icon>(std::move(descriptor));
 }
 
 } // namespace Lottie

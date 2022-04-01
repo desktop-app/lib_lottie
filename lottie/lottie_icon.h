@@ -17,6 +17,7 @@
 namespace Lottie {
 
 struct IconDescriptor {
+	QString name;
 	QString path;
 	QByteArray json;
 	const style::color *color = nullptr;
@@ -82,5 +83,7 @@ private:
 	mutable Fn<void()> _repaint;
 
 };
+
+[[nodiscard]] std::unique_ptr<Icon> MakeIcon(IconDescriptor &&descriptor);
 
 } // namespace Lottie

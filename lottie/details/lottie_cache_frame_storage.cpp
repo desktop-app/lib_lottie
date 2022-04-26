@@ -17,9 +17,6 @@ namespace {
 
 constexpr auto kAlignStorage = 16;
 
-// Must not exceed max database allowed entry size.
-constexpr auto kMaxCacheSize = 10 * 1024 * 1024;
-
 void DecodeYUV2RGB(
 		QImage &to,
 		const EncodedStorage &from,

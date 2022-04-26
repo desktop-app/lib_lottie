@@ -190,6 +190,10 @@ Animation::FrameInfo SinglePlayer::frameInfo(
 	return _animation.frameInfo(request);
 }
 
+int SinglePlayer::frameIndex() const {
+	return _animation.frameIndex();
+}
+
 Information SinglePlayer::information() const {
 	return _animation.information();
 }

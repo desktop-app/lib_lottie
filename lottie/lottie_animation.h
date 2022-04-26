@@ -75,6 +75,7 @@ public:
 	[[nodiscard]] QImage frame() const;
 	[[nodiscard]] QImage frame(const FrameRequest &request) const;
 	[[nodiscard]] FrameInfo frameInfo(const FrameRequest &request) const;
+	[[nodiscard]] int frameIndex() const;
 	[[nodiscard]] Information information() const;
 
 private:

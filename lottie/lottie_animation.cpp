@@ -312,6 +312,12 @@ int Animation::frameIndex() const {
 	return frame->index % _state->framesCount();
 }
 
+int Animation::framesCount() const {
+	Expects(_state != nullptr);
+
+	return _state->framesCount();
+}
+
 Information Animation::information() const {
 	Expects(_state != nullptr);
 

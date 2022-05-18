@@ -194,6 +194,10 @@ int SinglePlayer::frameIndex() const {
 	return _animation.frameIndex();
 }
 
+int SinglePlayer::framesCount() const {
+	return _animation.framesCount();
+}
+
 Information SinglePlayer::information() const {
 	return _animation.information();
 }

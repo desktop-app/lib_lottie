@@ -22,15 +22,10 @@ FrameProviderShared::FrameProviderShared(
 }
 
 QImage FrameProviderShared::construct(
-		const std::unique_ptr<FrameProviderToken> &token,
+		std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) {
 	QWriteLocker lock(&_mutex);
-	if (!_shared) {
-		if (token) {
-			token->result = FrameRenderResult::Failed;
-		}
-		return QImage();
-	}
+	token = createToken();
 	if (token) {
 		token->exclusive = !_constructed;
 	}
@@ -58,8 +53,8 @@ int FrameProviderShared::sizeRounding() {
 }
 
 std::unique_ptr<FrameProviderToken> FrameProviderShared::createToken() {
-	QReadLocker lock(&_mutex);
-	Assert(_shared != nullptr);
+	Expects(_shared != nullptr);
+
 	return _shared->createToken();
 }
 

@@ -34,7 +34,7 @@ FrameProviderCached::FrameProviderCached(
 }
 
 QImage FrameProviderCached::construct(
-		const std::unique_ptr<FrameProviderToken> &token,
+		std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) {
 	auto cover = _cache.takeFirstFrame();
 	using Token = FrameProviderCachedToken;

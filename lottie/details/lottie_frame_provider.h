@@ -22,17 +22,13 @@ public:
 	virtual ~FrameProvider() = default;
 
 	virtual QImage construct(
-		const std::unique_ptr<FrameProviderToken> &token,
+		std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) = 0;
 	[[nodiscard]] virtual const Information &information() = 0;
 	[[nodiscard]] virtual bool valid() = 0;
 
 	[[nodiscard]] virtual int sizeRounding() = 0;
 
-	[[nodiscard]] virtual bool requiresTokens() {
-		// Used for shared frame provider.
-		return false;
-	}
 	[[nodiscard]] virtual std::unique_ptr<FrameProviderToken> createToken() {
 		// Used for shared frame provider.
 		return nullptr;

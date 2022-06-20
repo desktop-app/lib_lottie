@@ -21,16 +21,13 @@ public:
 		FnMut<void(FnMut<void(std::unique_ptr<FrameProvider>)>)> factory);
 
 	QImage construct(
-		const std::unique_ptr<FrameProviderToken> &token,
+		std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) override;
 	const Information &information() override;
 	bool valid() override;
 
 	int sizeRounding() override;
 
-	bool requiresTokens() override {
-		return true;
-	}
 	std::unique_ptr<FrameProviderToken> createToken() override;
 
 	bool render(

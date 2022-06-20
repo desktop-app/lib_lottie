@@ -186,8 +186,7 @@ void FrameRendererObject::queueGenerateFrames() {
 SharedState::SharedState(
 	std::shared_ptr<FrameProvider> provider,
 	const FrameRequest &request)
-: _provider(std::move(provider))
-, _token(_provider->requiresTokens() ? _provider->createToken() : nullptr) {
+: _provider(std::move(provider)) {
 	if (_provider->valid()) {
 		init(_provider->construct(_token, request), request);
 	}

@@ -106,7 +106,7 @@ private:
 	int _framesCount = 0;
 	int _skippedFrames = 0;
 	const std::shared_ptr<FrameProvider> _provider;
-	const std::unique_ptr<FrameProviderToken> _token;
+	std::unique_ptr<FrameProviderToken> _token;
 
 };
 

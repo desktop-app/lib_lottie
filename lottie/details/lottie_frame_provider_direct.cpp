@@ -130,7 +130,7 @@ bool FrameProviderDirect::valid() {
 }
 
 QImage FrameProviderDirect::construct(
-		const std::unique_ptr<FrameProviderToken> &token,
+		std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) {
 	auto cover = QImage();
 	render(token, cover, request, 0);

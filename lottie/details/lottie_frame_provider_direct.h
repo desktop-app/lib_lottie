@@ -29,7 +29,7 @@ public:
 	bool setInformation(Information information);
 
 	QImage construct(
-		const std::unique_ptr<FrameProviderToken> &token,
+		std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) override;
 	const Information &information() override;
 	bool valid() override;

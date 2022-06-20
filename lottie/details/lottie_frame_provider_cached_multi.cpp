@@ -113,7 +113,7 @@ bool FrameProviderCachedMulti::validateFramesPerCache() {
 }
 
 QImage FrameProviderCachedMulti::construct(
-		const std::unique_ptr<FrameProviderToken> &token,
+		std::unique_ptr<FrameProviderToken> &token,
 		const FrameRequest &request) {
 	if (!_framesPerCache) {
 		if (token) {

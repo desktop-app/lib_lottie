@@ -30,6 +30,7 @@ public:
 private:
 	std::unique_ptr<rlottie::Animation> _rlottie;
 	QSize _size;
+	int _multiplier = 1;
 	int _frameDuration = 0;
 	int _framesCount = 0;
 	int _frameIndex = 0;

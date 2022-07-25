@@ -21,13 +21,14 @@ EmojiGenerator::EmojiGenerator(const QByteArray &bytes)
 		std::string(),
 		false)) {
 	if (_rlottie) {
+		const auto rate = _rlottie->frameRate();
+		_multiplier = (rate == 60) ? 2 : 1;
 		auto width = size_t();
 		auto height = size_t();
 		_rlottie->size(width, height);
 		_size = QSize(width, height);
-		_framesCount = _rlottie->totalFrame();
-		const auto rate = _rlottie->frameRate();
-		_frameDuration = (rate > 0) ? (1000 / rate) : 0;
+		_framesCount = _rlottie->totalFrame() / _multiplier;
+		_frameDuration = (rate > 0) ? (1000 * _multiplier / rate) : 0;
 	}
 	if (!_framesCount || !_frameDuration || _size.isEmpty()) {
 		_rlottie = nullptr;
@@ -67,7 +68,7 @@ EmojiGenerator::Frame EmojiGenerator::renderNext(
 		render.width(),
 		render.height(),
 		storage.bytesPerLine());
-	_rlottie->renderSync(index, std::move(surface));
+	_rlottie->renderSync(index * _multiplier, std::move(surface));
 	return {
 		.image = std::move(storage),
 		.duration = _frameDuration,

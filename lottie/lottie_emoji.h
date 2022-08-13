@@ -9,6 +9,7 @@
 #include "ui/effects/frame_generator.h"
 
 #include <QtGui/QImage>
+#include <memory>
 
 namespace rlottie {
 class Animation;

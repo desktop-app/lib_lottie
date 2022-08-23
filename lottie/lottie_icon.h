@@ -23,6 +23,7 @@ struct IconDescriptor {
 	const style::color *color = nullptr;
 	QSize sizeOverride;
 	int frame = 0;
+	bool limitFps = false;
 };
 
 class Icon final : public base::has_weak_ptr {

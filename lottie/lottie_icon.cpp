@@ -80,7 +80,7 @@ struct Icon::Frame {
 
 class Icon::Inner final : public std::enable_shared_from_this<Inner> {
 public:
-	Inner(int frameIndex, base::weak_ptr<Icon> weak);
+	Inner(int frameIndex, base::weak_ptr<Icon> weak, bool limitFps);
 
 	void prepareFromAsync(
 		const QString &name,
@@ -111,6 +111,7 @@ private:
 	// Called from crl::async.
 	void renderPreloadFrame(const QColor &color);
 
+	const bool _limitFps = false;
 	std::unique_ptr<rlottie::Animation> _rlottie;
 	Frame _current;
 	QSize _desiredSize;
@@ -121,13 +122,15 @@ private:
 
 	base::weak_ptr<Icon> _weak;
 	int _framesCount = 0;
+	int _frameMultiplier = 1;
 	mutable crl::semaphore _semaphore;
 	mutable bool _ready = false;
 
 };
 
-Icon::Inner::Inner(int frameIndex, base::weak_ptr<Icon> weak)
-: _current{ .index = frameIndex }
+Icon::Inner::Inner(int frameIndex, base::weak_ptr<Icon> weak, bool limitFps)
+: _limitFps(limitFps)
+, _current { .index = frameIndex }
 , _weak(weak) {
 }
 
@@ -151,6 +154,10 @@ void Icon::Inner::prepareFromAsync(
 	auto height = size_t();
 	rlottie->size(width, height);
 	_framesCount = rlottie->totalFrame();
+	if (_limitFps && rlottie->frameRate() == 60) {
+		_frameMultiplier = 2;
+		_framesCount /= _frameMultiplier;
+	}
 	if (!_framesCount || !width || !height) {
 		return;
 	}
@@ -169,7 +176,9 @@ void Icon::Inner::prepareFromAsync(
 		image.width(),
 		image.height(),
 		image.bytesPerLine());
-	_rlottie->renderSync(_current.index, std::move(surface));
+	_rlottie->renderSync(
+		_current.index * _frameMultiplier,
+		std::move(surface));
 	_current.renderedColor = RealRenderedColor(color);
 	_current.renderedImage = std::move(image);
 	_desiredSize = size;
@@ -209,7 +218,9 @@ const Icon::Frame &Icon::Inner::frame() const {
 
 crl::time Icon::Inner::animationDuration(int frameFrom, int frameTo) const {
 	waitTillPrepared();
-	const auto rate = _rlottie ? _rlottie->frameRate() : 0.;
+	const auto rate = _rlottie
+		? (_rlottie->frameRate() / _frameMultiplier)
+		: 0.;
 	const auto frames = std::abs(frameTo - frameFrom);
 	return (rate >= 1.)
 		? crl::time(base::SafeRound(frames / rate * 1000.))
@@ -276,7 +287,9 @@ void Icon::Inner::renderPreloadFrame(const QColor &color) {
 		image.width(),
 		image.height(),
 		image.bytesPerLine());
-	_rlottie->renderSync(_preloaded.index, std::move(surface));
+	_rlottie->renderSync(
+		_preloaded.index * _frameMultiplier,
+		std::move(surface));
 	_preloaded.renderedColor = color;
 	_preloaded.resizedImage = QImage();
 	_preloadState = PreloadState::Ready;
@@ -286,7 +299,10 @@ void Icon::Inner::renderPreloadFrame(const QColor &color) {
 }
 
 Icon::Icon(IconDescriptor &&descriptor)
-: _inner(std::make_shared<Inner>(descriptor.frame, base::make_weak(this)))
+: _inner(std::make_shared<Inner>(
+	descriptor.frame,
+	base::make_weak(this),
+	descriptor.limitFps))
 , _color(descriptor.color)
 , _animationFrameTo(descriptor.frame) {
 	crl::async([

@@ -21,8 +21,8 @@ PRIVATE
     lottie/lottie_animation.h
     lottie/lottie_common.cpp
     lottie/lottie_common.h
-    lottie/lottie_emoji.cpp
-    lottie/lottie_emoji.h
+    lottie/lottie_frame_generator.cpp
+    lottie/lottie_frame_generator.h
     lottie/lottie_multi_player.cpp
     lottie/lottie_multi_player.h
     lottie/lottie_player.h

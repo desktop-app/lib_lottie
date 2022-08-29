@@ -4,7 +4,7 @@
 // For license and copyright information please follow this link:
 // https://github.com/desktop-app/legal/blob/master/LEGAL
 //
-#include "lottie/lottie_emoji.h"
+#include "lottie/lottie_frame_generator.h"
 
 #include "lottie/lottie_common.h"
 #include "ui/image/image_prepare.h"
@@ -13,7 +13,7 @@
 
 namespace Lottie {
 
-EmojiGenerator::EmojiGenerator(const QByteArray &bytes)
+FrameGenerator::FrameGenerator(const QByteArray &bytes)
 : _rlottie(
 	rlottie::Animation::loadFromData(
 		ReadUtf8(Images::UnpackGzip(bytes)),
@@ -37,20 +37,34 @@ EmojiGenerator::EmojiGenerator(const QByteArray &bytes)
 	}
 }
 
-EmojiGenerator::~EmojiGenerator() = default;
+FrameGenerator::~FrameGenerator() = default;
 
-int EmojiGenerator::count() {
+int FrameGenerator::count() {
 	return _framesCount;
 }
 
-EmojiGenerator::Frame EmojiGenerator::renderNext(
+double FrameGenerator::rate() {
+	return _rlottie ? (_rlottie->frameRate() / _multiplier) : 0.;
+}
+
+FrameGenerator::Frame FrameGenerator::renderNext(
 		QImage storage,
 		QSize size,
 		Qt::AspectRatioMode mode) {
 	if (!_framesCount || _frameIndex == _framesCount) {
 		return {};
 	}
-	const auto index = _frameIndex++;
+	++_frameIndex;
+	return renderCurrent(std::move(storage), size, mode);
+}
+
+FrameGenerator::Frame FrameGenerator::renderCurrent(
+		QImage storage,
+		QSize size,
+		Qt::AspectRatioMode mode) {
+	Expects(_frameIndex > 0);
+
+	const auto index = _frameIndex - 1;
 	if (storage.format() != kImageFormat
 		|| storage.size() != size) {
 		storage = CreateFrameStorage(size);
@@ -70,9 +84,14 @@ EmojiGenerator::Frame EmojiGenerator::renderNext(
 		storage.bytesPerLine());
 	_rlottie->renderSync(index * _multiplier, std::move(surface));
 	return {
-		.image = std::move(storage),
 		.duration = _frameDuration,
+		.image = std::move(storage),
+		.last = (_frameIndex == _framesCount),
 	};
+}
+
+void FrameGenerator::jumpToStart() {
+	_frameIndex = 0;
 }
 
 } // namespace Lottie

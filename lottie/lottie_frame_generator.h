@@ -32,7 +32,7 @@ public:
 		QImage storage,
 		QSize size,
 		Qt::AspectRatioMode mode = Qt::IgnoreAspectRatio) override;
-	void jumpToStart();
+	void jumpToStart() override;
 
 private:
 	std::unique_ptr<rlottie::Animation> _rlottie;

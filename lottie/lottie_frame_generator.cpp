@@ -27,7 +27,8 @@ FrameGenerator::FrameGenerator(const QByteArray &bytes)
 		auto height = size_t();
 		_rlottie->size(width, height);
 		_size = QSize(width, height);
-		_framesCount = _rlottie->totalFrame() / _multiplier;
+		_framesCount = (_rlottie->totalFrame() + _multiplier - 1)
+			/ _multiplier;
 		_frameDuration = (rate > 0) ? (1000 * _multiplier / rate) : 0;
 	}
 	if (!_framesCount || !_frameDuration || _size.isEmpty()) {

@@ -153,11 +153,11 @@ void Icon::Inner::prepareFromAsync(
 	auto width = size_t();
 	auto height = size_t();
 	rlottie->size(width, height);
-	_framesCount = rlottie->totalFrame();
 	if (_limitFps && rlottie->frameRate() == 60) {
 		_frameMultiplier = 2;
-		_framesCount /= _frameMultiplier;
 	}
+	_framesCount = (rlottie->totalFrame() + _frameMultiplier - 1)
+		/ _frameMultiplier;
 	if (!_framesCount || !width || !height) {
 		return;
 	}

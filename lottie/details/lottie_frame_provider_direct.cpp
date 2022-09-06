@@ -22,7 +22,9 @@ int GetLottieFrameRate(not_null<rlottie::Animation*> animation, Quality quality)
 int GetLottieFramesCount(not_null<rlottie::Animation*> animation, Quality quality) {
 	const auto rate = int(qRound(animation->frameRate()));
 	const auto count = int(animation->totalFrame());
-	return (quality == Quality::Default && rate == 60) ? (count / 2) : count;
+	return (quality == Quality::Default && rate == 60)
+		? ((count + 1) / 2)
+		: count;
 }
 
 int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality, int index) {

@@ -6,7 +6,7 @@
 
 add_library(lib_lottie OBJECT)
 add_library(desktop-app::lib_lottie ALIAS lib_lottie)
-init_target(lib_lottie ltcg)
+init_target(lib_lottie)
 
 get_filename_component(src_loc . REALPATH)
 

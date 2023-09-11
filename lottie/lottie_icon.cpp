@@ -16,6 +16,10 @@
 #include <crl/crl_on_main.h>
 #include <rlottie.h>
 
+#if __has_include(<glib.h>)
+#include <glib.h>
+#endif
+
 namespace Lottie {
 namespace {
 
@@ -38,6 +42,13 @@ namespace {
 		false,
 		std::move(list));
 #else
+#if __has_include(<glib.h>)
+	[[maybe_unused]] static auto logged = [&] { 
+		g_warning(
+			"rlottie is incompatible, expect animations with color issues.");
+		return true;
+	}();
+#endif
 	auto result = rlottie::Animation::loadFromData(
 		std::move(string),
 		std::string(),

@@ -32,7 +32,7 @@ int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality
 	return (quality == Quality::Default && rate == 60) ? (index * 2) : index;
 }
 
-#ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
+#ifndef LOTTIE_USE_PACKAGED_RLOTTIE
 
 [[nodiscard]] rlottie::FitzModifier MapModifier(SkinModifier modifier) {
 	using Result = rlottie::FitzModifier;
@@ -47,7 +47,7 @@ int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality
 	Unexpected("Unexpected modifier in MapModifier.");
 }
 
-#endif // DESKTOP_APP_USE_PACKAGED_RLOTTIE
+#endif // LOTTIE_USE_PACKAGED_RLOTTIE
 
 } // namespace
 
@@ -67,7 +67,7 @@ bool FrameProviderDirect::load(
 		return false;
 	}
 
-#ifndef DESKTOP_APP_USE_PACKAGED_RLOTTIE
+#ifndef LOTTIE_USE_PACKAGED_RLOTTIE
 	_animation = rlottie::Animation::loadFromData(
 		string,
 		std::string(),

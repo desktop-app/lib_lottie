@@ -46,12 +46,16 @@ if (DESKTOP_APP_LOTTIE_USE_CACHE)
         lottie/details/lottie_frame_provider_shared.cpp
         lottie/details/lottie_frame_provider_shared.h
     )
-    target_compile_definitions(lib_lottie PUBLIC LOTTIE_USE_CACHE)
+    target_compile_definitions(lib_lottie PRIVATE LOTTIE_USE_CACHE)
     target_link_libraries(lib_lottie
-    PUBLIC
+    PRIVATE
         desktop-app::lib_ffmpeg
         desktop-app::external_lz4
     )
+endif()
+
+if (DESKTOP_APP_USE_PACKAGED_RLOTTIE)
+    target_compile_definitions(lib_lottie PRIVATE LOTTIE_USE_PACKAGED_RLOTTIE)
 endif()
 
 target_include_directories(lib_lottie

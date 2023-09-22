@@ -9,7 +9,10 @@
 #include "lottie/details/lottie_frame_renderer.h"
 #include "lottie/details/lottie_frame_provider_shared.h"
 #include "lottie/details/lottie_frame_provider_direct.h"
+
+#ifdef LOTTIE_USE_CACHE
 #include "lottie/details/lottie_frame_provider_cached_multi.h"
+#endif // LOTTIE_USE_CACHE
 
 #include <crl/crl_async.h>
 

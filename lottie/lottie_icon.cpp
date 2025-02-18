@@ -43,7 +43,7 @@ namespace {
 		std::move(list));
 #else
 #if __has_include(<glib.h>)
-	[[maybe_unused]] static auto logged = [&] { 
+	[[maybe_unused]] static auto logged = [&] {
 		g_warning(
 			"rlottie is incompatible, expect animations with color issues.");
 		return true;

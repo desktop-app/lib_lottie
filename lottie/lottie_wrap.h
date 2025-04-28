@@ -22,25 +22,26 @@ inline std::unique_ptr<rlottie::Animation> LoadAnimationFromData(
 		bool cachePolicy = true,
 		const std::vector<std::pair<std::uint32_t, std::uint32_t>> &colorReplacements = {},
 		rlottie::FitzModifier fitzModifier = rlottie::FitzModifier::None) {
-#ifdef LOTTIE_USE_PACKAGED_RLOTTIE
+#ifdef LOTTIE_DISABLE_RECOLORING
 	[[maybe_unused]] static auto logged = [&] {
-		const auto text = "rlottie is incompatible, expect animations with color issues.";
+		const auto text = "Lottie recoloring is disabled by the distributor, "
+			"expect animations with color issues.";
 		LOG((text));
 #if __has_include(<glib.h>)
 		g_warning(text);
 #endif // __has_include(<glib.h>)
 		return true;
 	}();
-#endif // LOTTIE_USE_PACKAGED_RLOTTIE
+#endif // LOTTIE_DISABLE_RECOLORING
 	return rlottie::Animation::loadFromData(
 		std::move(jsonData),
 		key,
 		resourcePath,
 		cachePolicy
-#ifndef LOTTIE_USE_PACKAGED_RLOTTIE
+#ifndef LOTTIE_DISABLE_RECOLORING
 		,std::move(colorReplacements),
 		fitzModifier
-#endif // !LOTTIE_USE_PACKAGED_RLOTTIE
+#endif // !LOTTIE_DISABLE_RECOLORING
 	);
 }
 

@@ -54,8 +54,8 @@ if (DESKTOP_APP_LOTTIE_USE_CACHE)
     )
 endif()
 
-if (DESKTOP_APP_USE_PACKAGED_RLOTTIE)
-    target_compile_definitions(lib_lottie PRIVATE LOTTIE_USE_PACKAGED_RLOTTIE)
+if (DESKTOP_APP_LOTTIE_DISABLE_RECOLORING)
+    target_compile_definitions(lib_lottie PRIVATE LOTTIE_DISABLE_RECOLORING)
 endif()
 
 target_include_directories(lib_lottie

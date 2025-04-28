@@ -41,7 +41,7 @@ namespace {
 }
 
 [[nodiscard]] QColor RealRenderedColor(QColor color) {
-#ifndef LOTTIE_USE_PACKAGED_RLOTTIE
+#ifndef LOTTIE_DISABLE_RECOLORING
 	return QColor(color.red(), color.green(), color.blue(), 255);
 #else
 	return Qt::white;

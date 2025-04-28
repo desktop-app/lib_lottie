@@ -6,6 +6,7 @@
 //
 #include "lottie/details/lottie_frame_provider_direct.h"
 
+#include "lottie/lottie_wrap.h"
 #include "lottie/details/lottie_frame_renderer.h"
 #include "ui/image/image_prepare.h"
 
@@ -32,8 +33,6 @@ int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality
 	return (quality == Quality::Default && rate == 60) ? (index * 2) : index;
 }
 
-#ifndef LOTTIE_USE_PACKAGED_RLOTTIE
-
 [[nodiscard]] rlottie::FitzModifier MapModifier(SkinModifier modifier) {
 	using Result = rlottie::FitzModifier;
 	switch (modifier) {
@@ -46,8 +45,6 @@ int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality
 	}
 	Unexpected("Unexpected modifier in MapModifier.");
 }
-
-#endif // LOTTIE_USE_PACKAGED_RLOTTIE
 
 } // namespace
 
@@ -67,8 +64,7 @@ bool FrameProviderDirect::load(
 		return false;
 	}
 
-#ifndef LOTTIE_USE_PACKAGED_RLOTTIE
-	_animation = rlottie::Animation::loadFromData(
+	_animation = LoadAnimationFromData(
 		string,
 		std::string(),
 		std::string(),
@@ -79,13 +75,6 @@ bool FrameProviderDirect::load(
 		(replacements
 			? MapModifier(replacements->modifier)
 			: rlottie::FitzModifier::None));
-#else
-	_animation = rlottie::Animation::loadFromData(
-		string,
-		std::string(),
-		std::string(),
-		false);
-#endif
 	if (!_animation) {
 		return false;
 	}

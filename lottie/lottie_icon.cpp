@@ -7,6 +7,7 @@
 #include "lottie/lottie_icon.h"
 
 #include "lottie/lottie_common.h"
+#include "lottie/lottie_wrap.h"
 #include "ui/image/image_prepare.h"
 #include "ui/style/style_core.h"
 
@@ -16,10 +17,6 @@
 #include <crl/crl_on_main.h>
 #include <rlottie.h>
 
-#if __has_include(<glib.h>)
-#include <glib.h>
-#endif
-
 namespace Lottie {
 namespace {
 
@@ -27,7 +24,6 @@ namespace {
 		const QByteArray &content,
 		QColor replacement) {
 	auto string = ReadUtf8(Images::UnpackGzip(content));
-#ifndef LOTTIE_USE_PACKAGED_RLOTTIE
 	auto list = std::vector<std::pair<std::uint32_t, std::uint32_t>>();
 	if (replacement != Qt::white) {
 		const auto value = (uint32_t(replacement.red()) << 16)
@@ -35,26 +31,12 @@ namespace {
 			| (uint32_t(replacement.blue()));
 		list.push_back({ 0xFFFFFFU, value });
 	}
-	auto result = rlottie::Animation::loadFromData(
+	auto result = LoadAnimationFromData(
 		std::move(string),
 		std::string(),
 		std::string(),
 		false,
 		std::move(list));
-#else
-#if __has_include(<glib.h>)
-	[[maybe_unused]] static auto logged = [&] {
-		g_warning(
-			"rlottie is incompatible, expect animations with color issues.");
-		return true;
-	}();
-#endif
-	auto result = rlottie::Animation::loadFromData(
-		std::move(string),
-		std::string(),
-		std::string(),
-		false);
-#endif
 	return result;
 }
 

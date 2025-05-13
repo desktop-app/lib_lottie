@@ -5,6 +5,8 @@
 //
 #pragma once
 
+#include "base/debug_log.h"
+
 #include <rlottie.h>
 
 #if __has_include(<glib.h>)
@@ -20,13 +22,16 @@ inline std::unique_ptr<rlottie::Animation> LoadAnimationFromData(
 		bool cachePolicy = true,
 		const std::vector<std::pair<std::uint32_t, std::uint32_t>> &colorReplacements = {},
 		rlottie::FitzModifier fitzModifier = rlottie::FitzModifier::None) {
-#if __has_include(<glib.h>) && defined LOTTIE_USE_PACKAGED_RLOTTIE
+#ifdef LOTTIE_USE_PACKAGED_RLOTTIE
 	[[maybe_unused]] static auto logged = [&] {
-		g_warning(
-			"rlottie is incompatible, expect animations with color issues.");
+		const auto text = "rlottie is incompatible, expect animations with color issues.";
+		LOG((text));
+#if __has_include(<glib.h>)
+		g_warning(text);
+#endif // __has_include(<glib.h>)
 		return true;
 	}();
-#endif
+#endif // LOTTIE_USE_PACKAGED_RLOTTIE
 	return rlottie::Animation::loadFromData(
 		std::move(jsonData),
 		key,

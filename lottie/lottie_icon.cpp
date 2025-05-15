@@ -9,6 +9,7 @@
 #include "lottie/lottie_common.h"
 #include "lottie/lottie_wrap.h"
 #include "ui/image/image_prepare.h"
+#include "ui/text/text_custom_emoji.h"
 #include "ui/style/style_core.h"
 
 #include <QtGui/QPainter>
@@ -58,6 +59,116 @@ namespace {
 		? ReadContent(json, path)
 		: Images::UnpackGzip(
 			ReadContent({}, u":/animations/"_q + name + u".tgs"_q));
+}
+
+class LocalLottieCustomEmoji final
+	: public Ui::Text::CustomEmoji
+	, public base::has_weak_ptr {
+public:
+	LocalLottieCustomEmoji(
+		Lottie::IconDescriptor &&descriptor,
+		Fn<void()> repaint);
+	~LocalLottieCustomEmoji() override = default;
+
+	int width() override;
+	QString entityData() override;
+	void paint(QPainter &p, const Context &context) override;
+	void unload() override;
+	bool ready() override;
+	bool readyInDefaultState() override;
+
+private:
+	void startAnimation();
+	void handleAnimationFrame();
+
+	int _width = 0;
+	const QString _entityData;
+	std::unique_ptr<Lottie::Icon> _icon;
+	Fn<void()> _repaint;
+	bool _looped = true;
+};
+
+LocalLottieCustomEmoji::LocalLottieCustomEmoji(
+	Lottie::IconDescriptor &&descriptor,
+	Fn<void()> repaint)
+: _width(descriptor.sizeOverride.width())
+, _entityData(!descriptor.name.isEmpty()
+	? descriptor.name
+	: descriptor.path.isEmpty()
+	? descriptor.path
+	: u"lottie_custom_emoji"_q)
+, _icon(Lottie::MakeIcon(std::move(descriptor)))
+, _repaint(std::move(repaint)) {
+	if (!_width && _icon && _icon->valid()) {
+		_width = _icon->width();
+		startAnimation();
+	}
+}
+
+int LocalLottieCustomEmoji::width() {
+	return _width;
+}
+
+QString LocalLottieCustomEmoji::entityData() {
+	return _entityData;
+}
+
+void LocalLottieCustomEmoji::paint(QPainter &p, const Context &context) {
+	if (!_icon || !_icon->valid()) {
+		return;
+	}
+
+	const auto color = context.textColor;
+	const auto position = context.position;
+	const auto paused = context.paused
+		|| context.internal.forceFirstFrame
+		|| context.internal.overrideFirstWithLastFrame;
+
+	if (paused) {
+		const auto frame = context.internal.forceLastFrame
+			? _icon->framesCount() - 1
+			: 0;
+		_icon->jumpTo(frame, _repaint);
+	} else if (!_icon->animating()) {
+		startAnimation();
+	}
+
+	_icon->paint(p, position.x(), position.y(), color);
+}
+
+void LocalLottieCustomEmoji::unload() {
+	if (_icon) {
+		_icon->jumpTo(0, nullptr);
+	}
+}
+
+bool LocalLottieCustomEmoji::ready() {
+	return _icon && _icon->valid();
+}
+
+bool LocalLottieCustomEmoji::readyInDefaultState() {
+	return _icon && _icon->valid() && _icon->frameIndex() == 0;
+}
+
+void LocalLottieCustomEmoji::startAnimation() {
+	if (!_icon || !_icon->valid() || _icon->framesCount() <= 1) {
+		return;
+	}
+
+	_icon->animate(
+		[weak = base::make_weak(this)] {
+			if (const auto strong = weak.get()) {
+				strong->handleAnimationFrame();
+			}
+		},
+		0,
+        _icon->framesCount() - 1);
+}
+
+void LocalLottieCustomEmoji::handleAnimationFrame() {
+	if (_repaint && _looped && _icon->frameIndex() > 0) {
+		_repaint();
+	}
 }
 
 } // namespace
@@ -492,6 +603,14 @@ bool Icon::animating() const {
 
 std::unique_ptr<Icon> MakeIcon(IconDescriptor &&descriptor) {
 	return std::make_unique<Icon>(std::move(descriptor));
+}
+
+std::unique_ptr<Ui::Text::CustomEmoji> MakeEmoji(
+		IconDescriptor &&descriptor,
+		Fn<void()> repaint) {
+	return std::make_unique<LocalLottieCustomEmoji>(
+		std::move(descriptor),
+		repaint);
 }
 
 } // namespace Lottie

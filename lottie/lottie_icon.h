@@ -14,6 +14,10 @@
 #include <QtCore/QByteArray>
 #include <optional>
 
+namespace Ui::Text {
+class CustomEmoji;
+} // namespace Ui::Text
+
 namespace Lottie {
 
 struct IconDescriptor {
@@ -86,5 +90,8 @@ private:
 };
 
 [[nodiscard]] std::unique_ptr<Icon> MakeIcon(IconDescriptor &&descriptor);
+[[nodiscard]] std::unique_ptr<Ui::Text::CustomEmoji> MakeEmoji(
+	IconDescriptor &&descriptor,
+	Fn<void()> repaint);
 
 } // namespace Lottie

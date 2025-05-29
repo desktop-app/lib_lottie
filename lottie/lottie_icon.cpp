@@ -284,6 +284,7 @@ void Icon::Inner::prepareFromAsync(
 		std::move(surface));
 	_current.renderedColor = RealRenderedColor(color);
 	_current.renderedImage = std::move(image);
+	_current.colorizedColor = QColor(); // Mark colorizedImage as invalid.
 	_desiredSize = size;
 }
 
@@ -395,6 +396,7 @@ void Icon::Inner::renderPreloadFrame(const QColor &color) {
 		std::move(surface));
 	_preloaded.renderedColor = color;
 	_preloaded.resizedImage = QImage();
+	_preloaded.colorizedColor = QColor(); // Mark colorizedImage as invalid.
 	_preloadState = PreloadState::Ready;
 	crl::on_main(_weak, [=] {
 		_weak->frameJumpFinished();
@@ -407,7 +409,8 @@ Icon::Icon(IconDescriptor &&descriptor)
 	base::make_weak(this),
 	descriptor.limitFps))
 , _color(descriptor.color)
-, _animationFrameTo(descriptor.frame) {
+, _animationFrameTo(descriptor.frame)
+, _colorizeUsingAlpha(descriptor.colorizeUsingAlpha) {
 	crl::async([
 		inner = _inner,
 		name = descriptor.name,
@@ -476,7 +479,13 @@ Icon::ResizedFrame Icon::frame(
 		frame.colorizedImage = CreateFrameStorage(desired);
 	}
 	frame.colorizedColor = color;
-	style::colorizeImage(frame.renderedImage, color, &frame.colorizedImage);
+	style::colorizeImage(
+		frame.renderedImage,
+		color,
+		&frame.colorizedImage,
+		QRect(),
+		QPoint(),
+		_colorizeUsingAlpha);
 	return { frame.colorizedImage };
 }
 
@@ -506,7 +515,7 @@ void Icon::paint(
 	}
 	const auto rect = QRect{ QPoint(x, y), size() };
 	if (color == frame.renderedColor || !_color) {
-		p.drawImage(rect, frame.renderedImage);
+		 p.drawImage(rect, frame.renderedImage);
 	} else if (color.alphaF() < 1.
 		&& (QColor(color.red(), color.green(), color.blue())
 			== frame.renderedColor)) {
@@ -534,7 +543,10 @@ void Icon::paint(
 		style::colorizeImage(
 			frame.renderedImage,
 			color,
-			&frame.colorizedImage);
+			&frame.colorizedImage,
+			QRect(),
+			QPoint(),
+			_colorizeUsingAlpha);
 		p.drawImage(rect, frame.colorizedImage);
 	}
 }
@@ -560,7 +572,12 @@ void Icon::animate(
 	if (frameFrom != frameTo) {
 		_animationFrameTo = frameTo;
 		_animation.start(
-			[=] { preloadNextFrame(); if (_repaint) _repaint(); },
+			[=] {
+				preloadNextFrame();
+				if (_repaint) {
+					_repaint();
+				}
+			},
 			frameFrom,
 			frameTo,
 			(duration

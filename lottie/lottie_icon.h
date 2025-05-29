@@ -28,6 +28,7 @@ struct IconDescriptor {
 	QSize sizeOverride;
 	int frame = 0;
 	bool limitFps = false;
+	bool colorizeUsingAlpha = false;
 };
 
 class Icon final : public base::has_weak_ptr {
@@ -85,6 +86,7 @@ private:
 	const style::color *_color = nullptr;
 	Ui::Animations::Simple _animation;
 	mutable int _animationFrameTo = 0;
+	const bool _colorizeUsingAlpha = false;
 	mutable Fn<void()> _repaint;
 
 };

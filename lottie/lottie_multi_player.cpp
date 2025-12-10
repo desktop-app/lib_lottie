@@ -20,7 +20,7 @@ MultiPlayer::MultiPlayer(
 , _timer([=] { checkNextFrameRender(); })
 , _renderer(renderer ? std::move(renderer) : FrameRenderer::Instance()) {
 	crl::on_main_update_requests(
-	) | rpl::start_with_next([=] {
+	) | rpl::on_next([=] {
 		checkStep();
 	}, _lifetime);
 }

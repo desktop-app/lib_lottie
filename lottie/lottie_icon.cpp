@@ -514,9 +514,10 @@ void Icon::paint(
 		return;
 	}
 	const auto rect = QRect{ QPoint(x, y), size() };
-	if (color == frame.renderedColor || !_color) {
+	if (!_colorizeUsingAlpha && (color == frame.renderedColor || !_color)) {
 		 p.drawImage(rect, frame.renderedImage);
-	} else if (color.alphaF() < 1.
+	} else if (!_colorizeUsingAlpha
+		&& (color.alphaF() < 1.)
 		&& (QColor(color.red(), color.green(), color.blue())
 			== frame.renderedColor)) {
 		const auto o = p.opacity();

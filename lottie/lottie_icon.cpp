@@ -7,6 +7,7 @@
 #include "lottie/lottie_icon.h"
 
 #include "lottie/lottie_common.h"
+#include "lottie/lottie_toast_icon.h"
 #include "lottie/lottie_wrap.h"
 #include "ui/image/image_prepare.h"
 #include "ui/text/text_custom_emoji.h"
@@ -620,6 +621,7 @@ bool Icon::animating() const {
 }
 
 std::unique_ptr<Icon> MakeIcon(IconDescriptor &&descriptor) {
+	EnsureToastIconFactory();
 	return std::make_unique<Icon>(std::move(descriptor));
 }
 

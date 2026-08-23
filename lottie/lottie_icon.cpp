@@ -8,7 +8,6 @@
 
 #include "lottie/lottie_common.h"
 #include "lottie/lottie_toast_icon.h"
-#include "lottie/lottie_wrap.h"
 #include "ui/image/image_prepare.h"
 #include "ui/text/text_custom_emoji.h"
 #include "ui/style/style_core.h"
@@ -33,21 +32,16 @@ namespace {
 			| (uint32_t(replacement.blue()));
 		list.push_back({ 0xFFFFFFU, value });
 	}
-	auto result = LoadAnimationFromData(
+	return rlottie::Animation::loadFromData(
 		std::move(string),
 		std::string(),
 		std::string(),
 		false,
 		std::move(list));
-	return result;
 }
 
 [[nodiscard]] QColor RealRenderedColor(QColor color) {
-#ifndef LOTTIE_DISABLE_RECOLORING
 	return QColor(color.red(), color.green(), color.blue(), 255);
-#else
-	return Qt::white;
-#endif
 }
 
 [[nodiscard]] QByteArray ReadIconContent(

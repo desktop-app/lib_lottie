@@ -6,7 +6,6 @@
 //
 #include "lottie/details/lottie_frame_provider_direct.h"
 
-#include "lottie/lottie_wrap.h"
 #include "lottie/details/lottie_frame_renderer.h"
 #include "ui/image/image_prepare.h"
 
@@ -64,7 +63,7 @@ bool FrameProviderDirect::load(
 		return false;
 	}
 
-	_animation = LoadAnimationFromData(
+	_animation = rlottie::Animation::loadFromData(
 		string,
 		std::string(),
 		std::string(),

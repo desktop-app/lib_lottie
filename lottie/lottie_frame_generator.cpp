@@ -7,7 +7,6 @@
 #include "lottie/lottie_frame_generator.h"
 
 #include "lottie/lottie_common.h"
-#include "lottie/lottie_wrap.h"
 #include "ui/image/image_prepare.h"
 
 #include <rlottie.h>
@@ -16,7 +15,7 @@ namespace Lottie {
 
 FrameGenerator::FrameGenerator(const QByteArray &bytes)
 : _rlottie(
-	LoadAnimationFromData(
+	rlottie::Animation::loadFromData(
 		ReadUtf8(Images::UnpackGzip(bytes)),
 		std::string(),
 		std::string(),

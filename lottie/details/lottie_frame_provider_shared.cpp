@@ -17,6 +17,13 @@ FrameProviderShared::FrameProviderShared(
 	_mutex.lockForWrite();
 	factory(crl::guard(this, [=](std::unique_ptr<FrameProvider> shared) {
 		_shared = std::move(shared);
+		if (_shared) {
+			// Copied once, under the write lock: information() must not hand
+			// out a reference into _shared, which a failing render() on
+			// another thread can destroy the moment the read lock is
+			// released - before the caller has copied from it.
+			_information = _shared->information();
+		}
 		_mutex.unlock();
 	}));
 }
@@ -35,10 +42,8 @@ QImage FrameProviderShared::construct(
 }
 
 const Information &FrameProviderShared::information() {
-	static auto empty = Information();
-
 	QReadLocker lock(&_mutex);
-	return _shared ? _shared->information() : empty;
+	return _information;
 }
 
 bool FrameProviderShared::valid() {

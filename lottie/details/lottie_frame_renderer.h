@@ -63,6 +63,7 @@ public:
 
 	[[nodiscard]] not_null<Frame*> frameForPaint();
 	[[nodiscard]] int framesCount() const;
+	[[nodiscard]] int frameRate() const;
 	[[nodiscard]] crl::time nextFrameDisplayTime() const;
 	void addTimelineDelay(crl::time delayed, int skippedFrames = 0);
 	void markFrameDisplayed(crl::time now);
@@ -104,6 +105,7 @@ private:
 
 	int _frameIndex = 0;
 	int _framesCount = 0;
+	int _frameRate = 0;
 	int _skippedFrames = 0;
 	const std::shared_ptr<FrameProvider> _provider;
 	std::unique_ptr<FrameProviderToken> _token;

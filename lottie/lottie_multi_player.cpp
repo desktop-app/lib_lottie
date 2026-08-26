@@ -88,7 +88,7 @@ int MultiPlayer::countFrameIndex(
 		crl::time delay) const {
 	Expects(time != kTimeUnknown);
 
-	const auto rate = state->information().frameRate;
+	const auto rate = state->frameRate();
 	Assert(rate != 0);
 
 	const auto framesTime = time - _started - delay;

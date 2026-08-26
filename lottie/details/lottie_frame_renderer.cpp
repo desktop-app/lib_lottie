@@ -202,7 +202,9 @@ void SharedState::init(QImage cover, const FrameRequest &request) {
 	_frames[0].request = request;
 	_frames[0].sizeRounding = sizeRounding();
 	_frames[0].original = std::move(cover);
-	_framesCount = _provider->information().framesCount;
+	const auto information = _provider->information();
+	_framesCount = information.framesCount;
+	_frameRate = information.frameRate;
 }
 
 void SharedState::start(
@@ -287,7 +289,13 @@ auto SharedState::renderNextFrame(const FrameRequest &request)
 }
 
 crl::time SharedState::countFrameDisplayTime(int index) const {
-	const auto rate = _provider->information().frameRate;
+	// Snapshotted in init(): the provider's information() is written by
+	// the render queue while this runs on the main thread, so reading it
+	// here could observe a zero rate.
+	const auto rate = _frameRate;
+	if (!rate) {
+		return _started + _delay;
+	}
 	return _started
 		+ _delay
 		+ crl::time(1000) * (_skippedFrames + index) / rate;
@@ -327,6 +335,10 @@ not_null<Frame*> SharedState::frameForPaint() {
 
 int SharedState::framesCount() const {
 	return _framesCount;
+}
+
+int SharedState::frameRate() const {
+	return _frameRate;
 }
 
 crl::time SharedState::nextFrameDisplayTime() const {

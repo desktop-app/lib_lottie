@@ -188,7 +188,12 @@ SharedState::SharedState(
 	const FrameRequest &request)
 : _provider(std::move(provider)) {
 	if (_provider->valid()) {
-		init(_provider->construct(_token, request), request);
+		// A shared provider can be destroyed by a failing render() on another
+		// thread between valid() and construct(), and then there is no cover.
+		auto cover = _provider->construct(_token, request);
+		if (!cover.isNull()) {
+			init(std::move(cover), request);
+		}
 	}
 }
 
@@ -322,7 +327,11 @@ not_null<const Frame*> SharedState::getFrame(int index) const {
 }
 
 Information SharedState::information() const {
-	return _provider->information();
+	// Without init() the provider information doesn't describe this state:
+	// a shared provider keeps reporting the metadata it read once, while
+	// there are no frames here at all. Report nothing, so that the caller
+	// treats the animation as failed instead of painting a null frame.
+	return _framesCount ? _provider->information() : Information();
 }
 
 not_null<Frame*> SharedState::frameForPaint() {

@@ -39,6 +39,7 @@ public:
 private:
 	std::unique_ptr<FrameProvider> _shared;
 	Information _information;
+	int _sizeRounding = 1;
 	QReadWriteLock _mutex;
 	bool _constructed = false;
 

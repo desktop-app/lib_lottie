@@ -20,7 +20,6 @@
 #endif // LOTTIE_USE_CACHE
 
 #include <QFile>
-#include <rlottie.h>
 #include <crl/crl_async.h>
 #include <crl/crl_on_main.h>
 

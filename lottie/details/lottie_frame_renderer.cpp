@@ -14,7 +14,6 @@
 #include "base/assertion.h"
 
 #include <QPainter>
-#include <rlottie.h>
 #include <range/v3/algorithm/find.hpp>
 #include <range/v3/algorithm/count_if.hpp>
 

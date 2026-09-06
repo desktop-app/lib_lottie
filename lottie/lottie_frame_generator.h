@@ -11,11 +11,9 @@
 #include <QtGui/QImage>
 #include <memory>
 
-namespace rlottie {
-class Animation;
-} // namespace rlottie
-
 namespace Lottie {
+
+class Instance;
 
 class FrameGenerator final : public Ui::FrameGenerator {
 public:
@@ -35,7 +33,8 @@ public:
 	void jumpToStart() override;
 
 private:
-	std::unique_ptr<rlottie::Animation> _rlottie;
+	std::unique_ptr<Instance> _instance;
+	QImage _expanded;
 	QSize _size;
 	int _multiplier = 1;
 	int _frameDuration = 0;

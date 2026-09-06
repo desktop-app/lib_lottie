@@ -6,33 +6,35 @@
 //
 #include "lottie/lottie_frame_generator.h"
 
+#include "lottie/details/lottie_frame_renderer.h"
+#include "lottie/details/lottie_instance.h"
 #include "lottie/lottie_common.h"
 #include "ui/image/image_prepare.h"
 
-#include <rlottie.h>
+#include <QtGui/QPainter>
 
 namespace Lottie {
 
 FrameGenerator::FrameGenerator(const QByteArray &bytes)
-: _rlottie(
-	rlottie::Animation::loadFromData(
-		ReadUtf8(Images::UnpackGzip(bytes)),
-		std::string(),
-		std::string(),
-		false)) {
-	if (_rlottie) {
-		const auto rate = _rlottie->frameRate();
+: _instance(Instance::Create(ReadUtf8(Images::UnpackGzip(bytes)), nullptr)) {
+	if (_instance) {
+		const auto rate = _instance->frameRate();
 		_multiplier = (rate == 60) ? 2 : 1;
-		auto width = size_t();
-		auto height = size_t();
-		_rlottie->size(width, height);
-		_size = QSize(width, height);
-		_framesCount = (_rlottie->totalFrame() + _multiplier - 1)
+		_size = _instance->size();
+		_framesCount = (_instance->framesCount() + _multiplier - 1)
 			/ _multiplier;
 		_frameDuration = (rate > 0) ? (1000 * _multiplier / rate) : 0;
 	}
-	if (!_framesCount || !_frameDuration || _size.isEmpty()) {
-		_rlottie = nullptr;
+	// The animation states its own size and frame count, and a hostile one
+	// can state a frame count large enough that reserving a cache for it
+	// exhausts memory, so the same bounds the sticker path applies hold here.
+	if (!_framesCount
+		|| _framesCount > kMaxFramesCount
+		|| !_frameDuration
+		|| _size.isEmpty()
+		|| _size.width() > kMaxSize
+		|| _size.height() > kMaxSize) {
+		_instance = nullptr;
 		_framesCount = _frameDuration = 0;
 		_size = QSize();
 	}
@@ -45,7 +47,7 @@ int FrameGenerator::count() {
 }
 
 double FrameGenerator::rate() {
-	return _rlottie ? (_rlottie->frameRate() / _multiplier) : 0.;
+	return _instance ? (_instance->frameRate() / _multiplier) : 0.;
 }
 
 FrameGenerator::Frame FrameGenerator::renderNext(
@@ -66,24 +68,34 @@ FrameGenerator::Frame FrameGenerator::renderCurrent(
 	Expects(_frameIndex > 0);
 
 	const auto index = _frameIndex - 1;
-	if (storage.format() != kImageFormat
-		|| storage.size() != size) {
+
+	// Not just the format and the size: a storage the caller still shares
+	// would be detached, and copied, by the first write into it.
+	if (!GoodStorageForFrame(storage, size)) {
 		storage = CreateFrameStorage(size);
 	}
-	storage.fill(Qt::transparent);
-	const auto scaled = _size.scaled(size, mode);
-	const auto render = QSize(
-		std::max(scaled.width(), size.width()),
-		std::max(scaled.height(), size.height()));
-	const auto xskip = (size.width() - render.width()) / 2;
-	const auto yskip = (size.height() - render.height());
-	const auto skip = (yskip * storage.bytesPerLine() / 4) + xskip;
-	auto surface = rlottie::Surface(
-		reinterpret_cast<uint32_t*>(storage.bits()) + skip,
-		render.width(),
-		render.height(),
-		storage.bytesPerLine());
-	_rlottie->renderSync(index * _multiplier, std::move(surface));
+
+	// The frame is fitted inside whatever image it is rendered into, so only
+	// a mode that asks for more than the box needs an intermediate to crop.
+	const auto render = _size.scaled(size, mode);
+	if (render.width() <= size.width() && render.height() <= size.height()) {
+		_instance->renderToPrepared(storage, index * _multiplier);
+	} else {
+		if (!GoodStorageForFrame(_expanded, render)) {
+			_expanded = CreateFrameStorage(render);
+		}
+		_instance->renderToPrepared(_expanded, index * _multiplier);
+
+		// The crop covers the storage whole, so it replaces the pixels
+		// rather than blending onto ones nothing has written yet.
+		auto p = QPainter(&storage);
+		p.setCompositionMode(QPainter::CompositionMode_Source);
+		p.drawImage(
+			QPoint(
+				(size.width() - render.width()) / 2,
+				size.height() - render.height()),
+			_expanded);
+	}
 	return {
 		.duration = _frameDuration,
 		.image = std::move(storage),

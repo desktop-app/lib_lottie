@@ -7,42 +7,17 @@
 #include "lottie/details/lottie_frame_provider_direct.h"
 
 #include "lottie/details/lottie_frame_renderer.h"
+#include "lottie/details/lottie_instance.h"
 #include "ui/image/image_prepare.h"
-
-#include <rlottie.h>
 
 namespace Lottie {
 namespace {
 
-int GetLottieFrameRate(not_null<rlottie::Animation*> animation, Quality quality) {
-	const auto rate = int(qRound(animation->frameRate()));
-	return (quality == Quality::Default && rate == 60) ? (rate / 2) : rate;
-}
-
-int GetLottieFramesCount(not_null<rlottie::Animation*> animation, Quality quality) {
-	const auto rate = int(qRound(animation->frameRate()));
-	const auto count = int(animation->totalFrame());
-	return (quality == Quality::Default && rate == 60)
-		? ((count + 1) / 2)
-		: count;
-}
-
-int GetLottieFrameIndex(not_null<rlottie::Animation*> animation, Quality quality, int index) {
-	const auto rate = int(qRound(animation->frameRate()));
-	return (quality == Quality::Default && rate == 60) ? (index * 2) : index;
-}
-
-[[nodiscard]] rlottie::FitzModifier MapModifier(SkinModifier modifier) {
-	using Result = rlottie::FitzModifier;
-	switch (modifier) {
-	case SkinModifier::None: return Result::None;
-	case SkinModifier::Color1: return Result::Type12;
-	case SkinModifier::Color2: return Result::Type3;
-	case SkinModifier::Color3: return Result::Type4;
-	case SkinModifier::Color4: return Result::Type5;
-	case SkinModifier::Color5: return Result::Type6;
-	}
-	Unexpected("Unexpected modifier in MapModifier.");
+// A 60fps animation is played at half the rate unless asked otherwise, so
+// every second frame of it is the one actually rendered.
+int GetLottieFrameMultiplier(not_null<Instance*> instance, Quality quality) {
+	const auto rate = int(qRound(instance->frameRate()));
+	return (quality == Quality::Default && rate == 60) ? 2 : 1;
 }
 
 } // namespace
@@ -63,38 +38,26 @@ bool FrameProviderDirect::load(
 		return false;
 	}
 
-	_animation = rlottie::Animation::loadFromData(
-		string,
-		std::string(),
-		std::string(),
-		false,
-		(replacements
-			? replacements->replacements
-			: std::vector<std::pair<std::uint32_t, std::uint32_t>>()),
-		(replacements
-			? MapModifier(replacements->modifier)
-			: rlottie::FitzModifier::None));
-	if (!_animation) {
+	_instance = Instance::Create(string, replacements);
+	if (!_instance) {
 		return false;
 	}
-	auto width = size_t(0);
-	auto height = size_t(0);
-	_animation->size(width, height);
-	const auto rate = GetLottieFrameRate(_animation.get(), _quality);
-	const auto count = GetLottieFramesCount(_animation.get(), _quality);
+	_multiplier = GetLottieFrameMultiplier(_instance.get(), _quality);
+	const auto rate = int(qRound(_instance->frameRate()));
+	const auto count = _instance->framesCount();
 	return setInformation({
-		.size = QSize(int(width), int(height)),
-		.frameRate = int(rate),
-		.framesCount = int(count),
+		.size = _instance->size(),
+		.frameRate = rate / _multiplier,
+		.framesCount = (count + _multiplier - 1) / _multiplier,
 	});
 }
 
 bool FrameProviderDirect::loaded() const {
-	return (_animation != nullptr);
+	return (_instance != nullptr);
 }
 
 void FrameProviderDirect::unload() {
-	_animation = nullptr;
+	_instance = nullptr;
 }
 
 bool FrameProviderDirect::setInformation(Information information) {
@@ -156,15 +119,7 @@ bool FrameProviderDirect::render(
 void FrameProviderDirect::renderToPrepared(
 		QImage &to,
 		int index) const {
-	to.fill(Qt::transparent);
-	auto surface = rlottie::Surface(
-		reinterpret_cast<uint32_t*>(to.bits()),
-		to.width(),
-		to.height(),
-		to.bytesPerLine());
-	_animation->renderSync(
-		GetLottieFrameIndex(_animation.get(), _quality, index),
-		surface);
+	_instance->renderToPrepared(to, index * _multiplier);
 }
 
 } // namespace Lottie

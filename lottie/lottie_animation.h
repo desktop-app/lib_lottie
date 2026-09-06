@@ -15,10 +15,6 @@
 class QString;
 class QByteArray;
 
-namespace rlottie {
-class Animation;
-} // namespace rlottie
-
 namespace Lottie {
 
 class Player;

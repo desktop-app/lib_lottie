@@ -6,6 +6,7 @@
 //
 #include "lottie/lottie_icon.h"
 
+#include "lottie/details/lottie_instance.h"
 #include "lottie/lottie_common.h"
 #include "lottie/lottie_toast_icon.h"
 #include "ui/image/image_prepare.h"
@@ -16,28 +17,22 @@
 #include <crl/crl_async.h>
 #include <crl/crl_semaphore.h>
 #include <crl/crl_on_main.h>
-#include <rlottie.h>
 
 namespace Lottie {
 namespace {
 
-[[nodiscard]] std::unique_ptr<rlottie::Animation> CreateFromContent(
+[[nodiscard]] std::unique_ptr<Instance> CreateFromContent(
 		const QByteArray &content,
 		QColor replacement) {
 	auto string = ReadUtf8(Images::UnpackGzip(content));
-	auto list = std::vector<std::pair<std::uint32_t, std::uint32_t>>();
+	auto replacements = ColorReplacements();
 	if (replacement != Qt::white) {
 		const auto value = (uint32_t(replacement.red()) << 16)
 			| (uint32_t(replacement.green() << 8))
 			| (uint32_t(replacement.blue()));
-		list.push_back({ 0xFFFFFFU, value });
+		replacements.replacements.push_back({ 0xFFFFFFU, value });
 	}
-	return rlottie::Animation::loadFromData(
-		std::move(string),
-		std::string(),
-		std::string(),
-		false,
-		std::move(list));
+	return Instance::Create(string, &replacements);
 }
 
 [[nodiscard]] QColor RealRenderedColor(QColor color) {
@@ -211,7 +206,7 @@ private:
 	void renderPreloadFrame(const QColor &color);
 
 	const bool _limitFps = false;
-	std::unique_ptr<rlottie::Animation> _rlottie;
+	std::unique_ptr<Instance> _instance;
 	Frame _current;
 	QSize _desiredSize;
 	std::atomic<PreloadState> _preloadState = PreloadState::None;
@@ -243,24 +238,24 @@ void Icon::Inner::prepareFromAsync(
 	if (!_weak) {
 		return;
 	}
-	auto rlottie = CreateFromContent(
+	auto instance = CreateFromContent(
 		ReadIconContent(name, json, path),
 		color);
-	if (!rlottie || !_weak) {
+	if (!instance || !_weak) {
 		return;
 	}
-	auto width = size_t();
-	auto height = size_t();
-	rlottie->size(width, height);
-	if (_limitFps && rlottie->frameRate() == 60) {
+	const auto original = instance->size();
+	const auto width = size_t(original.width());
+	const auto height = size_t(original.height());
+	if (_limitFps && instance->frameRate() == 60) {
 		_frameMultiplier = 2;
 	}
-	_framesCount = (rlottie->totalFrame() + _frameMultiplier - 1)
+	_framesCount = (instance->framesCount() + _frameMultiplier - 1)
 		/ _frameMultiplier;
 	if (!_framesCount || !width || !height) {
 		return;
 	}
-	_rlottie = std::move(rlottie);
+	_instance = std::move(instance);
 	while (_current.index < 0) {
 		_current.index += _framesCount;
 	}
@@ -268,15 +263,7 @@ void Icon::Inner::prepareFromAsync(
 		? style::ConvertScale(QSize{ int(width), int(height) })
 		: sizeOverride;
 	auto image = CreateFrameStorage(size * style::DevicePixelRatio());
-	image.fill(Qt::transparent);
-	auto surface = rlottie::Surface(
-		reinterpret_cast<uint32_t*>(image.bits()),
-		image.width(),
-		image.height(),
-		image.bytesPerLine());
-	_rlottie->renderSync(
-		_current.index * _frameMultiplier,
-		std::move(surface));
+	_instance->renderToPrepared(image, _current.index * _frameMultiplier);
 	_current.renderedColor = RealRenderedColor(color);
 	_current.renderedImage = std::move(image);
 	_current.colorizedColor = QColor(); // Mark colorizedImage as invalid.
@@ -292,7 +279,7 @@ void Icon::Inner::waitTillPrepared() const {
 
 bool Icon::Inner::valid() const {
 	waitTillPrepared();
-	return (_rlottie != nullptr);
+	return (_instance != nullptr);
 }
 
 QSize Icon::Inner::size() const {
@@ -317,8 +304,8 @@ const Icon::Frame &Icon::Inner::frame() const {
 
 crl::time Icon::Inner::animationDuration(int frameFrom, int frameTo) const {
 	waitTillPrepared();
-	const auto rate = _rlottie
-		? (_rlottie->frameRate() / _frameMultiplier)
+	const auto rate = _instance
+		? (_instance->frameRate() / _frameMultiplier)
 		: 0.;
 	const auto frames = std::abs(frameTo - frameFrom);
 	return (rate >= 1.)
@@ -340,7 +327,7 @@ void Icon::Inner::moveToFrame(
 		_desiredSize = updatedDesiredSize;
 	}
 	const auto desiredImageSize = _desiredSize * style::DevicePixelRatio();
-	if (!_rlottie
+	if (!_instance
 		|| state == PreloadState::Preloading
 		|| (shown == frame
 			&& (_current.renderedImage.size() == desiredImageSize))) {
@@ -380,15 +367,7 @@ void Icon::Inner::renderPreloadFrame(const QColor &color) {
 			? base::take(_preloaded.resizedImage)
 			: CreateFrameStorage(size);
 	}
-	image.fill(Qt::black);
-	auto surface = rlottie::Surface(
-		reinterpret_cast<uint32_t*>(image.bits()),
-		image.width(),
-		image.height(),
-		image.bytesPerLine());
-	_rlottie->renderSync(
-		_preloaded.index * _frameMultiplier,
-		std::move(surface));
+	_instance->renderToPrepared(image, _preloaded.index * _frameMultiplier);
 	_preloaded.renderedColor = color;
 	_preloaded.resizedImage = QImage();
 	_preloaded.colorizedColor = QColor(); // Mark colorizedImage as invalid.

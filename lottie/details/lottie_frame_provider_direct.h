@@ -9,11 +9,9 @@
 #include "lottie/details/lottie_frame_provider.h"
 #include "lottie/lottie_common.h"
 
-namespace rlottie {
-class Animation;
-} // namespace rlottie
-
 namespace Lottie {
+
+class Instance;
 
 class FrameProviderDirect final : public FrameProvider {
 public:
@@ -48,9 +46,10 @@ private:
 		return this;
 	}
 
-	std::unique_ptr<rlottie::Animation> _animation;
+	std::unique_ptr<Instance> _instance;
 	Information _information;
 	Quality _quality = Quality::Default;
+	int _multiplier = 1;
 
 };
 

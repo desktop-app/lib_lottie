@@ -19,6 +19,8 @@ PRIVATE
     lottie/details/lottie_frame_provider_shared.h
     lottie/details/lottie_frame_renderer.cpp
     lottie/details/lottie_frame_renderer.h
+    lottie/details/lottie_instance.cpp
+    lottie/details/lottie_instance.h
     lottie/lottie_animation.cpp
     lottie/lottie_animation.h
     lottie/lottie_common.cpp
@@ -65,5 +67,5 @@ target_link_libraries(lib_lottie
 PUBLIC
     desktop-app::lib_ui
 PRIVATE
-    desktop-app::external_rlottie
+    desktop-app::external_tlottie
 )

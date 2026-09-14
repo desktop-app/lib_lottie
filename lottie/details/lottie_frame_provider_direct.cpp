@@ -16,7 +16,7 @@ namespace {
 // A 60fps animation is played at half the rate unless asked otherwise, so
 // every second frame of it is the one actually rendered.
 int GetLottieFrameMultiplier(not_null<Instance*> instance, Quality quality) {
-	const auto rate = int(qRound(instance->frameRate()));
+	const auto rate = int(base::SafeRound(instance->frameRate()));
 	return (quality == Quality::Default && rate == 60) ? 2 : 1;
 }
 
@@ -43,7 +43,7 @@ bool FrameProviderDirect::load(
 		return false;
 	}
 	_multiplier = GetLottieFrameMultiplier(_instance.get(), _quality);
-	const auto rate = int(qRound(_instance->frameRate()));
+	const auto rate = int(base::SafeRound(_instance->frameRate()));
 	const auto count = _instance->framesCount();
 	return setInformation({
 		.size = _instance->size(),

@@ -187,6 +187,7 @@ public:
 	[[nodiscard]] bool valid() const;
 	[[nodiscard]] QSize size() const;
 	[[nodiscard]] int framesCount() const;
+	[[nodiscard]] double frameRate() const;
 	[[nodiscard]] Frame &frame();
 	[[nodiscard]] const Frame &frame() const;
 
@@ -292,6 +293,11 @@ int Icon::Inner::framesCount() const {
 	return _framesCount;
 }
 
+double Icon::Inner::frameRate() const {
+	waitTillPrepared();
+	return _instance ? (_instance->frameRate() / _frameMultiplier) : 0.;
+}
+
 Icon::Frame &Icon::Inner::frame() {
 	waitTillPrepared();
 	return _current;
@@ -303,10 +309,7 @@ const Icon::Frame &Icon::Inner::frame() const {
 }
 
 crl::time Icon::Inner::animationDuration(int frameFrom, int frameTo) const {
-	waitTillPrepared();
-	const auto rate = _instance
-		? (_instance->frameRate() / _frameMultiplier)
-		: 0.;
+	const auto rate = frameRate();
 	const auto frames = std::abs(frameTo - frameFrom);
 	return (rate >= 1.)
 		? crl::time(base::SafeRound(frames / rate * 1000.))
@@ -412,6 +415,10 @@ int Icon::frameIndex() const {
 
 int Icon::framesCount() const {
 	return _inner->framesCount();
+}
+
+double Icon::frameRate() const {
+	return _inner->frameRate();
 }
 
 QImage Icon::frame() const {
